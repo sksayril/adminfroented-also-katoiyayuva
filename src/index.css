@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme CSS Variables */
+:root {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --sidebar-bg: linear-gradient(to bottom, #1e293b, #0f172a);
+  --sidebar-border: rgba(100, 116, 139, 0.5);
+  --active-color: #3b82f6;
+}
+
+[data-theme="light"] {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --sidebar-bg: linear-gradient(to bottom, #374151, #1f2937);
+  --sidebar-border: rgba(75, 85, 99, 0.5);
+  --active-color: #3b82f6;
+}
+
+[data-theme="dark"] {
+  --primary-color: #3b82f6;
+  --primary-hover: #2563eb;
+  --sidebar-bg: linear-gradient(to bottom, #0f172a, #020617);
+  --sidebar-border: rgba(100, 116, 139, 0.5);
+  --active-color: #3b82f6;
+}
+
+[data-theme="blue"] {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --sidebar-bg: linear-gradient(to bottom, #1e3a8a, #1e40af);
+  --sidebar-border: rgba(59, 130, 246, 0.5);
+  --active-color: #60a5fa;
+}
+
+[data-theme="green"] {
+  --primary-color: #16a34a;
+  --primary-hover: #15803d;
+  --sidebar-bg: linear-gradient(to bottom, #14532d, #166534);
+  --sidebar-border: rgba(34, 197, 94, 0.5);
+  --active-color: #4ade80;
+}
+
+[data-theme="purple"] {
+  --primary-color: #9333ea;
+  --primary-hover: #7e22ce;
+  --sidebar-bg: linear-gradient(to bottom, #581c87, #6b21a8);
+  --sidebar-border: rgba(168, 85, 247, 0.5);
+  --active-color: #a78bfa;
+}
+
+/* Custom scrollbar for sidebar */
+@layer utilities {
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 10px;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.5);
+    border-radius: 10px;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.7);
+  }
+}
+
+/* Dialog Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-\[shimmer_2s_infinite\] {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(
+    to right,
+    #f0f0f0 0%,
+    #e0e0e0 20%,
+    #f0f0f0 40%,
+    #f0f0f0 100%
+  );
+  background-size: 1000px 100%;
+}
