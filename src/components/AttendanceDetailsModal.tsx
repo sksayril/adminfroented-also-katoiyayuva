@@ -3,7 +3,8 @@ import { X, Calendar, Loader2, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { 
   getStudentAttendance, StudentAttendance,
   getStaffAttendance, StaffAttendance,
-  Student, Staff,
+  getTeacherAttendance, TeacherAttendance,
+  Student, Staff, Teacher,
   ApiError 
 } from '../services/api';
 import { toast } from 'react-toastify';
@@ -11,8 +12,8 @@ import { toast } from 'react-toastify';
 interface AttendanceDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'student' | 'staff';
-  person: Student | Staff;
+  type: 'student' | 'staff' | 'teacher';
+  person: Student | Staff | Teacher;
 }
 
 export default function AttendanceDetailsModal({ 
@@ -21,7 +22,7 @@ export default function AttendanceDetailsModal({
   type, 
   person 
 }: AttendanceDetailsModalProps) {
-  const [attendanceRecords, setAttendanceRecords] = useState<(StudentAttendance | StaffAttendance)[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<(StudentAttendance | StaffAttendance | TeacherAttendance)[]>([]);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -77,6 +78,19 @@ export default function AttendanceDetailsModal({
         
         const response = await getStaffAttendance(params);
         setAttendanceRecords(response.data);
+      } else if (type === 'teacher') {
+        const teacher = person as Teacher;
+        const params: any = { teacherId: teacher.teacherId };
+        
+        if (selectedDate) {
+          params.date = selectedDate;
+        } else if (startDate && endDate) {
+          params.startDate = startDate;
+          params.endDate = endDate;
+        }
+        
+        const response = await getTeacherAttendance(params);
+        setAttendanceRecords(response.data.attendance);
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -130,8 +144,16 @@ export default function AttendanceDetailsModal({
 
   if (!isOpen) return null;
 
-  const personName = type === 'student' ? (person as Student).name : (person as Staff).name;
-  const personId = type === 'student' ? (person as Student).studentId : (person as Staff).staffId;
+  const personName = type === 'student' 
+    ? (person as Student).name 
+    : type === 'staff' 
+    ? (person as Staff).name 
+    : (person as Teacher).name;
+  const personId = type === 'student' 
+    ? (person as Student).studentId 
+    : type === 'staff' 
+    ? (person as Staff).staffId 
+    : (person as Teacher).teacherId;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -248,6 +270,18 @@ export default function AttendanceDetailsModal({
                             Out-Time
                           </th>
                         </>
+                      ) : type === 'staff' ? (
+                        <>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Time Slot
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Check-In
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Check-Out
+                          </th>
+                        </>
                       ) : (
                         <>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -309,7 +343,7 @@ export default function AttendanceDetailsModal({
                             </td>
                           </tr>
                         );
-                      } else {
+                      } else if (type === 'staff') {
                         const staffRecord = record as StaffAttendance;
                         return (
                           <tr key={staffRecord._id} className="hover:bg-gray-50">
@@ -344,6 +378,44 @@ export default function AttendanceDetailsModal({
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               {staffRecord.method || 'MANUAL'}
+                            </td>
+                          </tr>
+                        );
+                      } else {
+                        const teacherRecord = record as TeacherAttendance;
+                        return (
+                          <tr key={teacherRecord._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatDate(teacherRecord.date)}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {teacherRecord.timeSlot || 'N/A'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {teacherRecord.checkIn ? (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-green-600" />
+                                  <span>{formatTime(teacherRecord.checkIn)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">Not marked</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {teacherRecord.checkOut ? (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  <span>{formatTime(teacherRecord.checkOut)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">Not marked</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              {getStatusBadge(teacherRecord.status)}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {teacherRecord.method || 'MANUAL'}
                             </td>
                           </tr>
                         );

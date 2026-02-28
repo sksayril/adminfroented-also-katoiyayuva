@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Box, Menu, BookOpen, Users, Calendar, UserCheck, GraduationCap, CreditCard, Settings, Building2, User, ClipboardCheck } from 'lucide-react';
+import { Home, Box, Menu, BookOpen, Users, Calendar, UserCheck, GraduationCap, CreditCard, Settings, Building2, User, ClipboardCheck, Receipt, Upload } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -333,6 +333,44 @@ export default function Sidebar({ isCollapsed, toggleSidebar }: SidebarProps) {
           {!isCollapsed && (
             <span className={`font-medium ${isActive('/payments') ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
               Payments
+            </span>
+          )}
+        </Link>
+
+        <Link
+          to="/expenses"
+          className={`group relative flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-3 mb-1 rounded-lg transition-all duration-200 ${
+            isActive('/expenses') 
+              ? `bg-gradient-to-r ${themeClasses.activeBg} border-r-4 ${themeClasses.activeBorder} shadow-lg` 
+              : `${themeClasses.hoverBg} hover:translate-x-1`
+          }`}
+        >
+          {isActive('/expenses') && (
+            <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${themeClasses.activeGradient} rounded-r-full`} />
+          )}
+          <Receipt className={`w-5 h-5 transition-colors ${isActive('/expenses') ? themeClasses.iconColor : 'text-gray-300 group-hover:text-white'}`} />
+          {!isCollapsed && (
+            <span className={`font-medium ${isActive('/expenses') ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
+              Expenses
+            </span>
+          )}
+        </Link>
+
+        <Link
+          to="/data-upload"
+          className={`group relative flex items-center ${isCollapsed ? 'justify-center px-2' : 'space-x-3 px-4'} py-3 mb-1 rounded-lg transition-all duration-200 ${
+            isActive('/data-upload') 
+              ? `bg-gradient-to-r ${themeClasses.activeBg} border-r-4 ${themeClasses.activeBorder} shadow-lg` 
+              : `${themeClasses.hoverBg} hover:translate-x-1`
+          }`}
+        >
+          {isActive('/data-upload') && (
+            <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${themeClasses.activeGradient} rounded-r-full`} />
+          )}
+          <Upload className={`w-5 h-5 transition-colors ${isActive('/data-upload') ? themeClasses.iconColor : 'text-gray-300 group-hover:text-white'}`} />
+          {!isCollapsed && (
+            <span className={`font-medium ${isActive('/data-upload') ? 'text-white' : 'text-gray-300 group-hover:text-white'}`}>
+              Data Upload
             </span>
           )}
         </Link>

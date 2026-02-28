@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, Upload, Image as ImageIcon, FileText, User, Phone, MapPin, GraduationCap, Building2, Calendar } from 'lucide-react';
+import { X, Loader2, Upload, Image as ImageIcon, FileText, User, Phone, GraduationCap, Building2 } from 'lucide-react';
 import { registerStudent, ManualStudentRegistrationData, ApiError, getCourses, Course, getBatches, Batch } from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -69,6 +69,8 @@ export default function RegisterStudentModal({
     studentSignature?: File;
     officeSignature?: File;
     formScanImage?: File;
+    aadharCardImage?: File;
+    schoolCertificateImage?: File;
   }>({});
 
   const [previews, setPreviews] = useState<{
@@ -76,6 +78,8 @@ export default function RegisterStudentModal({
     studentSignature?: string;
     officeSignature?: string;
     formScanImage?: string;
+    aadharCardImage?: string;
+    schoolCertificateImage?: string;
   }>({});
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -148,7 +152,7 @@ export default function RegisterStudentModal({
     }));
   };
 
-  const handleFileChange = (field: 'studentPhoto' | 'studentSignature' | 'officeSignature' | 'formScanImage', e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (field: 'studentPhoto' | 'studentSignature' | 'officeSignature' | 'formScanImage' | 'aadharCardImage' | 'schoolCertificateImage', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
@@ -921,6 +925,122 @@ export default function RegisterStudentModal({
                     <p className="text-sm text-gray-600">JPG, PNG, WEBP, PDF (MAX. 50MB)</p>
                     {errors.formScanImage && (
                       <p className="mt-1 text-sm text-red-600">{errors.formScanImage}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Aadhar Card Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Aadhar Card Image</label>
+                <div className="flex items-center gap-4">
+                  {previews.aadharCardImage ? (
+                    <div className="relative">
+                      {files.aadharCardImage?.type.startsWith('image/') ? (
+                        <img
+                          src={previews.aadharCardImage}
+                          alt="Aadhar Card Preview"
+                          className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-300">
+                          <FileText className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiles((prev) => {
+                            const newFiles = { ...prev };
+                            delete newFiles.aadharCardImage;
+                            return newFiles;
+                          });
+                          setPreviews((prev) => {
+                            const newPreviews = { ...prev };
+                            delete newPreviews.aadharCardImage;
+                            return newPreviews;
+                          });
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="text-xs text-gray-500 text-center px-2">Upload Aadhar</p>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                        onChange={(e) => handleFileChange('aadharCardImage', e)}
+                      />
+                    </label>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600">JPG, PNG, WEBP, PDF (MAX. 50MB)</p>
+                    <p className="text-xs text-gray-500 mt-1">Uploaded to AWS S3</p>
+                    {errors.aadharCardImage && (
+                      <p className="mt-1 text-sm text-red-600">{errors.aadharCardImage}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* School Certificate Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">School Certificate Image</label>
+                <div className="flex items-center gap-4">
+                  {previews.schoolCertificateImage ? (
+                    <div className="relative">
+                      {files.schoolCertificateImage?.type.startsWith('image/') ? (
+                        <img
+                          src={previews.schoolCertificateImage}
+                          alt="School Certificate Preview"
+                          className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-300">
+                          <FileText className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiles((prev) => {
+                            const newFiles = { ...prev };
+                            delete newFiles.schoolCertificateImage;
+                            return newFiles;
+                          });
+                          setPreviews((prev) => {
+                            const newPreviews = { ...prev };
+                            delete newPreviews.schoolCertificateImage;
+                            return newPreviews;
+                          });
+                        }}
+                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
+                      <p className="text-xs text-gray-500 text-center px-2">Upload Certificate</p>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                        onChange={(e) => handleFileChange('schoolCertificateImage', e)}
+                      />
+                    </label>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600">JPG, PNG, WEBP, PDF (MAX. 50MB)</p>
+                    <p className="text-xs text-gray-500 mt-1">Uploaded to AWS S3</p>
+                    {errors.schoolCertificateImage && (
+                      <p className="mt-1 text-sm text-red-600">{errors.schoolCertificateImage}</p>
                     )}
                   </div>
                 </div>

@@ -1627,6 +1627,8 @@ export const registerStudent = async (
     studentSignature?: File;
     officeSignature?: File;
     formScanImage?: File;
+    aadharCardImage?: File;
+    schoolCertificateImage?: File;
   }
 ): Promise<CreateStudentResponse> => {
   try {
@@ -1687,6 +1689,12 @@ export const registerStudent = async (
     }
     if (files?.formScanImage) {
       formData.append('formScanImage', files.formScanImage);
+    }
+    if (files?.aadharCardImage) {
+      formData.append('aadharCardImage', files.aadharCardImage);
+    }
+    if (files?.schoolCertificateImage) {
+      formData.append('schoolCertificateImage', files.schoolCertificateImage);
     }
 
     const response = await authenticatedFetch('/admin/students/manual', {
@@ -2195,6 +2203,14 @@ export interface MarkStudentOutTimeRequest {
   qrData?: string;
 }
 
+export interface UpdateStudentAttendanceRequest {
+  status?: 'Present' | 'Absent' | 'Late';
+  method?: 'QR' | 'FACE' | 'MANUAL';
+  inTime?: string;
+  outTime?: string;
+  date?: string;
+}
+
 export interface MarkStaffCheckInRequest {
   staffId: string;
   date: string;
@@ -2212,6 +2228,14 @@ export interface MarkStaffCheckOutRequest {
   qrData?: string;
 }
 
+export interface UpdateStaffAttendanceRequest {
+  status?: 'Present' | 'Absent' | 'Late';
+  method?: 'QR' | 'MANUAL';
+  checkIn?: string;
+  checkOut?: string;
+  date?: string;
+}
+
 export interface StudentAttendanceQueryParams {
   studentId?: string;
   batchId?: string;
@@ -2224,6 +2248,89 @@ export interface StudentAttendanceQueryParams {
 
 export interface StaffAttendanceQueryParams {
   staffId?: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface TeacherAttendance {
+  _id: string;
+  staffId?: string | {
+    _id: string;
+    staffId: string;
+    name: string;
+    role: string;
+    email: string;
+    mobile: string;
+  };
+  teacher?: {
+    _id: string;
+    teacherId: string;
+    name: string;
+    email: string;
+    mobile: string;
+  };
+  date: string;
+  timeSlot?: string | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  status: string;
+  method?: 'QR' | 'MANUAL';
+  markedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TeacherAttendanceResponse {
+  success: boolean;
+  data: {
+    attendance: TeacherAttendance[];
+    statistics?: {
+      totalRecords: number;
+      totalTeachers: number;
+      present: number;
+      absent: number;
+      late: number;
+      attendancePercentage: number;
+    };
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    };
+  };
+}
+
+export interface MarkTeacherCheckInRequest {
+  teacherId: string;
+  date: string;
+  timeSlot?: string;
+  method?: 'QR' | 'MANUAL';
+  qrData?: string;
+  checkIn?: string;
+}
+
+export interface MarkTeacherCheckOutRequest {
+  teacherId: string;
+  date: string;
+  checkOut?: string;
+  method?: 'QR' | 'MANUAL';
+  qrData?: string;
+}
+
+export interface UpdateTeacherAttendanceRequest {
+  status?: 'Present' | 'Absent' | 'Late';
+  method?: 'QR' | 'MANUAL';
+  checkIn?: string;
+  checkOut?: string;
+  date?: string;
+}
+
+export interface TeacherAttendanceQueryParams {
+  teacherId?: string;
   date?: string;
   startDate?: string;
   endDate?: string;
@@ -2370,6 +2477,38 @@ export const markStudentOutTime = async (request: MarkStudentOutTimeRequest): Pr
   }
 };
 
+// Update Student Attendance
+export const updateStudentAttendance = async (id: string, request: UpdateStudentAttendanceRequest): Promise<AttendanceResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/attendance/student/${id}/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to update student attendance',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
 // Mark Staff Check-In
 export const markStaffCheckIn = async (request: MarkStaffCheckInRequest): Promise<AttendanceResponse> => {
   try {
@@ -2418,6 +2557,559 @@ export const markStaffCheckOut = async (request: MarkStaffCheckOutRequest): Prom
     if (!response.ok) {
       throw {
         message: data.message || 'Failed to mark staff check-out',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Update Staff Attendance
+export const updateStaffAttendance = async (id: string, request: UpdateStaffAttendanceRequest): Promise<AttendanceResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/attendance/staff/${id}/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to update staff attendance',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// ==================== TEACHER ATTENDANCE MANAGEMENT ====================
+
+// Get Teacher Attendance
+export const getTeacherAttendance = async (params?: TeacherAttendanceQueryParams): Promise<TeacherAttendanceResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.teacherId) queryParams.append('teacherId', params.teacherId);
+    if (params?.date) queryParams.append('date', params.date);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const url = `/admin/attendance/teacher${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await authenticatedFetch(url, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to fetch teacher attendance',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Mark Teacher Check-In
+export const markTeacherCheckIn = async (request: MarkTeacherCheckInRequest): Promise<AttendanceResponse> => {
+  try {
+    const response = await authenticatedFetch('/admin/attendance/teacher/check-in', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to mark teacher check-in',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Mark Teacher Check-Out
+export const markTeacherCheckOut = async (request: MarkTeacherCheckOutRequest): Promise<AttendanceResponse> => {
+  try {
+    const response = await authenticatedFetch('/admin/attendance/teacher/check-out', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to mark teacher check-out',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Update Teacher Attendance
+export const updateTeacherAttendance = async (id: string, request: UpdateTeacherAttendanceRequest): Promise<AttendanceResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/attendance/teacher/${id}/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to update teacher attendance',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// ==================== EXPENSES ====================
+
+export interface Expense {
+  _id: string;
+  branchId: string;
+  createdBy: string;
+  title: string;
+  description?: string;
+  billNumber?: string;
+  purpose: string;
+  amount: number;
+  expenseDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseStatistics {
+  totalExpenses: number;
+  totalAmount: number;
+  averageAmount: number;
+  minAmount: number;
+  maxAmount: number;
+}
+
+export interface ExpensePagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface ExpenseResponse {
+  success: boolean;
+  message?: string;
+  data: Expense;
+}
+
+export interface ExpensesListResponse {
+  success: boolean;
+  data: {
+    expenses: Expense[];
+    statistics: ExpenseStatistics;
+    pagination: ExpensePagination;
+  };
+}
+
+export interface CreateExpenseRequest {
+  title: string;
+  purpose: string;
+  amount: number;
+  description?: string;
+  billNumber?: string;
+  expenseDate?: string;
+}
+
+export interface UpdateExpenseRequest {
+  title?: string;
+  purpose?: string;
+  amount?: number;
+  description?: string;
+  billNumber?: string;
+  expenseDate?: string;
+}
+
+export interface ExpenseQueryParams {
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Create Expense
+export const createExpense = async (request: CreateExpenseRequest): Promise<ExpenseResponse> => {
+  try {
+    const response = await authenticatedFetch('/admin/expenses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to create expense',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Get All Expenses
+export const getExpenses = async (params?: ExpenseQueryParams): Promise<ExpensesListResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const url = `/admin/expenses${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await authenticatedFetch(url, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to fetch expenses',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Get Expense by ID
+export const getExpenseById = async (id: string): Promise<ExpenseResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/expenses/${id}`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to fetch expense',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Update Expense
+export const updateExpense = async (id: string, request: UpdateExpenseRequest): Promise<ExpenseResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/expenses/${id}/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to update expense',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Delete Expense
+export const deleteExpense = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await authenticatedFetch(`/admin/expenses/${id}/delete`, {
+      method: 'POST',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to delete expense',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// ==================== DYNAMIC DATA UPLOAD ====================
+
+export interface DynamicDataRecord {
+  _id: string;
+  branchId: string;
+  createdBy: string;
+  dataType: string;
+  title?: string;
+  description?: string;
+  data: any; // Can be object or array
+  tags?: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DataTypeCount {
+  dataType: string;
+  count: number;
+}
+
+export interface DynamicDataStatistics {
+  totalRecords: number;
+  byDataType: DataTypeCount[];
+}
+
+export interface DynamicDataPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface UploadDynamicDataRequest {
+  dataType: string;
+  data: any; // Can be object or array
+  title?: string;
+  description?: string;
+  tags?: string[];
+}
+
+export interface UploadDynamicDataResponse {
+  success: boolean;
+  message: string;
+  data: DynamicDataRecord;
+}
+
+export interface GetDynamicDataResponse {
+  success: boolean;
+  data: {
+    records: DynamicDataRecord[];
+    statistics: DynamicDataStatistics;
+    pagination: DynamicDataPagination;
+  };
+}
+
+export interface DynamicDataQueryParams {
+  dataType?: string;
+  tag?: string;
+  isActive?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+// Upload Dynamic Data
+export const uploadDynamicData = async (request: UploadDynamicDataRequest): Promise<UploadDynamicDataResponse> => {
+  try {
+    const response = await authenticatedFetch('/admin/data/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to upload data',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Get All Dynamic Data
+export const getDynamicData = async (params?: DynamicDataQueryParams): Promise<GetDynamicDataResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.dataType) queryParams.append('dataType', params.dataType);
+    if (params?.tag) queryParams.append('tag', params.tag);
+    if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+
+    const url = `/admin/data${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await authenticatedFetch(url, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to fetch dynamic data',
+        status: response.status,
+      } as ApiError;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Delete Dynamic Data
+export const deleteDynamicData = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await authenticatedFetch(`/admin/data/${id}/delete`, {
+      method: 'POST',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        message: data.message || 'Failed to delete data record',
         status: response.status,
       } as ApiError;
     }

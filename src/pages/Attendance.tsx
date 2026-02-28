@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
-import { ClipboardCheck, GraduationCap, UserCheck, Calendar, Search, Loader2, Clock, CheckCircle, Eye } from 'lucide-react';
+import { ClipboardCheck, GraduationCap, UserCheck, Calendar, Search, Loader2, Clock, CheckCircle, Eye, XCircle } from 'lucide-react';
 import { 
   getStudents, Student, 
   getStaff, Staff, 
   getTeachers, Teacher, 
   getStudentAttendance, StudentAttendance,
   getStaffAttendance, StaffAttendance,
+  getTeacherAttendance, TeacherAttendance,
   markStudentInTime, markStudentOutTime,
   markStaffCheckIn, markStaffCheckOut,
+  markTeacherCheckIn, markTeacherCheckOut,
+  updateStaffAttendance,
+  updateStudentAttendance,
+  updateTeacherAttendance,
   ApiError 
 } from '../services/api';
 import { toast } from 'react-toastify';
 import AttendanceDetailsModal from '../components/AttendanceDetailsModal';
+import TimeSelectionModal from '../components/TimeSelectionModal';
 
 export default function Attendance() {
   const [activeTab, setActiveTab] = useState<'students' | 'staff' | 'teachers'>('students');
@@ -25,14 +31,23 @@ export default function Attendance() {
   // Attendance tracking
   const [studentAttendance, setStudentAttendance] = useState<Record<string, StudentAttendance>>({});
   const [staffAttendance, setStaffAttendance] = useState<Record<string, StaffAttendance>>({});
+  const [teacherAttendance, setTeacherAttendance] = useState<Record<string, TeacherAttendance>>({});
   const [attendanceLoading, setAttendanceLoading] = useState<Record<string, boolean>>({});
   
   // Selected attendance type for each person
-  const [selectedAttendanceType, setSelectedAttendanceType] = useState<Record<string, 'inTime' | 'outTime' | 'checkIn' | 'checkOut' | undefined>>({});
+  const [selectedAttendanceType, setSelectedAttendanceType] = useState<Record<string, 'inTime' | 'outTime' | 'checkIn' | 'checkOut' | 'absent' | 'late' | undefined>>({});
   
   // Attendance details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<Student | Staff | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<Student | Staff | Teacher | null>(null);
+  
+  // Time selection modal
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [pendingAttendance, setPendingAttendance] = useState<{
+    id: string;
+    type: 'inTime' | 'outTime' | 'checkIn' | 'checkOut' | 'absent' | 'late';
+    personName: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -42,7 +57,7 @@ export default function Attendance() {
     if (selectedDate) {
       fetchAttendanceData();
     }
-  }, [selectedDate, activeTab, students, staff]);
+  }, [selectedDate, activeTab, students, staff, teachers]);
 
   const fetchData = async () => {
     try {
@@ -87,6 +102,38 @@ export default function Attendance() {
           attendanceMap[staffId] = attendance;
         });
         setStaffAttendance(attendanceMap);
+      } else if (activeTab === 'teachers' && teachers.length > 0) {
+        const response = await getTeacherAttendance({ date: selectedDate });
+        const attendanceMap: Record<string, TeacherAttendance> = {};
+        response.data.attendance.forEach((attendance) => {
+          // Teacher attendance API returns teacher object with teacherId
+          let teacherIdToMatch: string | undefined;
+          let teacherIdFromResponse: string | undefined;
+          
+          if (attendance.teacher) {
+            // Use teacher.teacherId from the API response (e.g., "YUVA-0002-TCH-NAN")
+            teacherIdToMatch = attendance.teacher.teacherId;
+            teacherIdFromResponse = attendance.teacher._id;
+          } else if (attendance.staffId) {
+            // Fallback to staffId if teacher object is not present
+            teacherIdToMatch = typeof attendance.staffId === 'string' 
+              ? attendance.staffId 
+              : (typeof attendance.staffId === 'object' ? attendance.staffId.staffId : undefined);
+            teacherIdFromResponse = typeof attendance.staffId === 'object' ? attendance.staffId._id : undefined;
+          }
+          
+          // Find the teacher by matching teacherId (the string ID like "YUVA-0002-TCH-NAN")
+          const teacher = teachers.find(t => 
+            t.teacherId === teacherIdToMatch || 
+            t._id === teacherIdFromResponse
+          );
+          
+          if (teacher) {
+            // Store attendance using teacher._id as the key
+            attendanceMap[teacher._id] = attendance;
+          }
+        });
+        setTeacherAttendance(attendanceMap);
       }
     } catch (err) {
       // Silently fail - attendance might not exist yet
@@ -94,7 +141,34 @@ export default function Attendance() {
     }
   };
 
-  const handleMarkAttendance = async (id: string, type: 'inTime' | 'outTime' | 'checkIn' | 'checkOut') => {
+  const handleMarkAttendance = async (id: string, type: 'inTime' | 'outTime' | 'checkIn' | 'checkOut' | 'absent' | 'late') => {
+    // Show time selection modal for inTime, outTime, checkIn, and checkOut
+    if (type === 'inTime' || type === 'outTime' || type === 'checkIn' || type === 'checkOut') {
+      let personName = '';
+      if (activeTab === 'students') {
+        const student = students.find(s => s._id === id);
+        if (!student) return;
+        personName = student.name;
+      } else if (activeTab === 'staff') {
+        const staffMember = staff.find(s => s._id === id);
+        if (!staffMember) return;
+        personName = staffMember.name;
+      } else if (activeTab === 'teachers') {
+        const teacher = teachers.find(t => t._id === id);
+        if (!teacher) return;
+        personName = teacher.name;
+      }
+      
+      setPendingAttendance({ id, type, personName });
+      setShowTimeModal(true);
+      return;
+    }
+
+    // For absent/late types, proceed directly without time selection
+    await processAttendance(id, type, null);
+  };
+
+  const processAttendance = async (id: string, type: 'inTime' | 'outTime' | 'checkIn' | 'checkOut' | 'absent' | 'late', customTime: string | null) => {
     try {
       setAttendanceLoading({ ...attendanceLoading, [id]: true });
       
@@ -112,6 +186,7 @@ export default function Attendance() {
             date: selectedDate,
             timeSlot: batchTimeSlot,
             method: 'MANUAL',
+            inTime: customTime || undefined,
           });
           toast.success(`In-time marked for ${student.name}`);
         } else if (type === 'outTime') {
@@ -119,8 +194,40 @@ export default function Attendance() {
             studentId: student.studentId,
             date: selectedDate,
             method: 'MANUAL',
+            outTime: customTime || undefined,
           });
           toast.success(`Out-time marked for ${student.name}`);
+        } else if (type === 'absent' || type === 'late') {
+          // Get existing attendance record to update
+          const existingAttendance = studentAttendance[id];
+          if (existingAttendance && existingAttendance._id) {
+            await updateStudentAttendance(existingAttendance._id, {
+              status: type === 'absent' ? 'Absent' : 'Late',
+              method: 'MANUAL',
+              date: selectedDate,
+            });
+            toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${student.name}`);
+          } else {
+            // If no attendance record exists, create one with absent/late status
+            // First mark in-time, then update to absent/late
+            const batchTimeSlot = typeof student.batchId === 'object' && student.batchId 
+              ? student.batchId.timeSlot 
+              : undefined;
+            const inTimeResponse = await markStudentInTime({
+              studentId: student.studentId,
+              date: selectedDate,
+              timeSlot: batchTimeSlot,
+              method: 'MANUAL',
+              inTime: customTime || undefined,
+            });
+            if (inTimeResponse.data && inTimeResponse.data._id) {
+              await updateStudentAttendance(inTimeResponse.data._id, {
+                status: type === 'absent' ? 'Absent' : 'Late',
+                method: 'MANUAL',
+              });
+              toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${student.name}`);
+            }
+          }
         }
       } else if (activeTab === 'staff') {
         const staffMember = staff.find(s => s._id === id);
@@ -131,6 +238,7 @@ export default function Attendance() {
             staffId: staffMember.staffId,
             date: selectedDate,
             method: 'MANUAL',
+            checkIn: customTime || undefined,
           });
           toast.success(`Check-in marked for ${staffMember.name}`);
         } else if (type === 'checkOut') {
@@ -138,8 +246,84 @@ export default function Attendance() {
             staffId: staffMember.staffId,
             date: selectedDate,
             method: 'MANUAL',
+            checkOut: customTime || undefined,
           });
           toast.success(`Check-out marked for ${staffMember.name}`);
+        } else if (type === 'absent' || type === 'late') {
+          // Get existing attendance record to update
+          const existingAttendance = staffAttendance[id];
+          if (existingAttendance && existingAttendance._id) {
+            await updateStaffAttendance(existingAttendance._id, {
+              status: type === 'absent' ? 'Absent' : 'Late',
+              method: 'MANUAL',
+              date: selectedDate,
+            });
+            toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${staffMember.name}`);
+          } else {
+            // If no attendance record exists, create one with absent/late status
+            // First mark check-in, then update to absent/late
+            const checkInResponse = await markStaffCheckIn({
+              staffId: staffMember.staffId,
+              date: selectedDate,
+              method: 'MANUAL',
+              checkIn: customTime || undefined,
+            });
+            if (checkInResponse.data && checkInResponse.data._id) {
+              await updateStaffAttendance(checkInResponse.data._id, {
+                status: type === 'absent' ? 'Absent' : 'Late',
+                method: 'MANUAL',
+              });
+              toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${staffMember.name}`);
+            }
+          }
+        }
+      } else if (activeTab === 'teachers') {
+        const teacher = teachers.find(t => t._id === id);
+        if (!teacher) return;
+
+        if (type === 'checkIn') {
+          await markTeacherCheckIn({
+            teacherId: teacher.teacherId,
+            date: selectedDate,
+            method: 'MANUAL',
+            checkIn: customTime || undefined,
+          });
+          toast.success(`Check-in marked for ${teacher.name}`);
+        } else if (type === 'checkOut') {
+          await markTeacherCheckOut({
+            teacherId: teacher.teacherId,
+            date: selectedDate,
+            method: 'MANUAL',
+            checkOut: customTime || undefined,
+          });
+          toast.success(`Check-out marked for ${teacher.name}`);
+        } else if (type === 'absent' || type === 'late') {
+          // Get existing attendance record to update
+          const existingAttendance = teacherAttendance[id];
+          if (existingAttendance && existingAttendance._id) {
+            await updateTeacherAttendance(existingAttendance._id, {
+              status: type === 'absent' ? 'Absent' : 'Late',
+              method: 'MANUAL',
+              date: selectedDate,
+            });
+            toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${teacher.name}`);
+          } else {
+            // If no attendance record exists, create one with absent/late status
+            // First mark check-in, then update to absent/late
+            const checkInResponse = await markTeacherCheckIn({
+              teacherId: teacher.teacherId,
+              date: selectedDate,
+              method: 'MANUAL',
+              checkIn: customTime || undefined,
+            });
+            if (checkInResponse.data && checkInResponse.data._id) {
+              await updateTeacherAttendance(checkInResponse.data._id, {
+                status: type === 'absent' ? 'Absent' : 'Late',
+                method: 'MANUAL',
+              });
+              toast.success(`${type === 'absent' ? 'Absent' : 'Late'} marked for ${teacher.name}`);
+            }
+          }
         }
       }
 
@@ -154,29 +338,71 @@ export default function Attendance() {
     }
   };
 
-  const getStudentAttendanceStatus = (studentId: string) => {
+  const getStudentAttendanceStatus = (studentId: string): {
+    hasInTime: boolean;
+    hasOutTime: boolean;
+    inTime: string | null | undefined;
+    outTime: string | null | undefined;
+    status: string | null;
+  } => {
     const attendance = studentAttendance[studentId];
-    if (!attendance) return { hasInTime: false, hasOutTime: false };
+    if (!attendance) {
+      return { 
+        hasInTime: false, 
+        hasOutTime: false, 
+        inTime: null, 
+        outTime: null, 
+        status: null 
+      };
+    }
     return {
       hasInTime: !!attendance.inTime,
       hasOutTime: !!attendance.outTime,
       inTime: attendance.inTime,
       outTime: attendance.outTime,
+      status: attendance.status || null,
     };
   };
 
   const getStaffAttendanceStatus = (staffId: string) => {
     const attendance = staffAttendance[staffId];
-    if (!attendance) return { hasCheckIn: false, hasCheckOut: false };
+    if (!attendance) return { hasCheckIn: false, hasCheckOut: false, status: null };
     return {
       hasCheckIn: !!attendance.checkIn,
       hasCheckOut: !!attendance.checkOut,
       checkIn: attendance.checkIn,
       checkOut: attendance.checkOut,
+      status: attendance.status,
     };
   };
 
-  const handleViewDetails = (person: Student | Staff) => {
+  const getTeacherAttendanceStatus = (teacherId: string): {
+    hasCheckIn: boolean;
+    hasCheckOut: boolean;
+    checkIn: string | null | undefined;
+    checkOut: string | null | undefined;
+    status: string | null;
+  } => {
+    const attendance = teacherAttendance[teacherId];
+    if (!attendance) {
+      return { 
+        hasCheckIn: false, 
+        hasCheckOut: false, 
+        checkIn: null, 
+        checkOut: null, 
+        status: null 
+      };
+    }
+    return {
+      hasCheckIn: !!attendance.checkIn,
+      hasCheckOut: !!attendance.checkOut,
+      checkIn: attendance.checkIn,
+      checkOut: attendance.checkOut,
+      status: attendance.status || null,
+    };
+  };
+
+  const handleViewDetails = (person: Student | Staff | Teacher) => {
     setSelectedPerson(person);
     setShowDetailsModal(true);
   };
@@ -356,12 +582,15 @@ export default function Attendance() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Action
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Details
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                         No students found
                       </td>
                     </tr>
@@ -404,8 +633,22 @@ export default function Attendance() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col gap-2">
-                              {/* In-Time Radio */}
-                              {!hasInTime && (
+                              {/* Show status if already marked as Absent or Late */}
+                              {attendanceStatus.status === 'Absent' && (
+                                <div className="flex items-center gap-2 text-sm text-red-600">
+                                  <XCircle className="w-4 h-4" />
+                                  <span className="font-semibold">Absent</span>
+                                </div>
+                              )}
+                              {attendanceStatus.status === 'Late' && (
+                                <div className="flex items-center gap-2 text-sm text-yellow-600">
+                                  <Clock className="w-4 h-4" />
+                                  <span className="font-semibold">Late</span>
+                                </div>
+                              )}
+                              
+                              {/* In-Time Radio - Only show if not absent/late */}
+                              {!hasInTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <label className="flex items-center gap-2 cursor-pointer">
                                   <input
                                     type="radio"
@@ -417,7 +660,7 @@ export default function Attendance() {
                                   <span className="text-sm text-gray-700">In-Time</span>
                                 </label>
                               )}
-                              {hasInTime && (
+                              {hasInTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                   <CheckCircle className="w-4 h-4" />
                                   <span>In: {attendanceStatus.inTime ? new Date(attendanceStatus.inTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
@@ -425,7 +668,7 @@ export default function Attendance() {
                               )}
                               
                               {/* Out-Time Radio - Only show if in-time is marked */}
-                              {hasInTime && !hasOutTime && (
+                              {hasInTime && !hasOutTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <label className="flex items-center gap-2 cursor-pointer">
                                   <input
                                     type="radio"
@@ -437,20 +680,55 @@ export default function Attendance() {
                                   <span className="text-sm text-gray-700">Out-Time</span>
                                 </label>
                               )}
-                              {hasOutTime && (
+                              {hasOutTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                   <CheckCircle className="w-4 h-4" />
                                   <span>Out: {attendanceStatus.outTime ? new Date(attendanceStatus.outTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                 </div>
                               )}
+                              
+                              {/* Absent and Late Radio Buttons - Only show if no attendance marked */}
+                              {!hasInTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                                <>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${student._id}`}
+                                      checked={selectedType === 'absent'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [student._id]: 'absent' })}
+                                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                                    />
+                                    <span className="text-sm text-red-700">Absent</span>
+                                  </label>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${student._id}`}
+                                      checked={selectedType === 'late'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [student._id]: 'late' })}
+                                      className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
+                                    />
+                                    <span className="text-sm text-yellow-700">Late</span>
+                                  </label>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {((!hasInTime && selectedType === 'inTime') || (hasInTime && !hasOutTime && selectedType === 'outTime')) && (
+                            {((!hasInTime && selectedType === 'inTime') || 
+                              (hasInTime && !hasOutTime && selectedType === 'outTime') ||
+                              selectedType === 'absent' || 
+                              selectedType === 'late') && (
                               <button
-                                onClick={() => handleMarkAttendance(student._id, selectedType === 'inTime' ? 'inTime' : 'outTime')}
+                                onClick={() => handleMarkAttendance(student._id, selectedType as any)}
                                 disabled={isLoading}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                                className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm ${
+                                  selectedType === 'absent' 
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : selectedType === 'late'
+                                    ? 'bg-yellow-600 hover:bg-yellow-700'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                               >
                                 {isLoading ? (
                                   <>
@@ -459,15 +737,30 @@ export default function Attendance() {
                                   </>
                                 ) : (
                                   <>
-                                    <Clock className="w-4 h-4" />
+                                    {selectedType === 'absent' ? (
+                                      <XCircle className="w-4 h-4" />
+                                    ) : selectedType === 'late' ? (
+                                      <Clock className="w-4 h-4" />
+                                    ) : (
+                                      <Clock className="w-4 h-4" />
+                                    )}
                                     Mark Attendance
                                   </>
                                 )}
                               </button>
                             )}
-                            {hasInTime && hasOutTime && (
+                            {hasInTime && hasOutTime && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                               <span className="text-sm text-green-600 font-medium">Complete</span>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleViewDetails(student)}
+                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Details
+                            </button>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
@@ -560,8 +853,22 @@ export default function Attendance() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col gap-2">
-                              {/* Check-In Radio */}
-                              {!hasCheckIn && (
+                              {/* Show status if already marked as Absent or Late */}
+                              {attendanceStatus.status === 'Absent' && (
+                                <div className="flex items-center gap-2 text-sm text-red-600">
+                                  <XCircle className="w-4 h-4" />
+                                  <span className="font-semibold">Absent</span>
+                                </div>
+                              )}
+                              {attendanceStatus.status === 'Late' && (
+                                <div className="flex items-center gap-2 text-sm text-yellow-600">
+                                  <Clock className="w-4 h-4" />
+                                  <span className="font-semibold">Late</span>
+                                </div>
+                              )}
+                              
+                              {/* Check-In Radio - Only show if not absent/late */}
+                              {!hasCheckIn && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <label className="flex items-center gap-2 cursor-pointer">
                                   <input
                                     type="radio"
@@ -573,7 +880,7 @@ export default function Attendance() {
                                   <span className="text-sm text-gray-700">Check-In</span>
                                 </label>
                               )}
-                              {hasCheckIn && (
+                              {hasCheckIn && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                   <CheckCircle className="w-4 h-4" />
                                   <span>In: {attendanceStatus.checkIn ? new Date(attendanceStatus.checkIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
@@ -581,7 +888,7 @@ export default function Attendance() {
                               )}
                               
                               {/* Check-Out Radio - Only show if check-in is marked */}
-                              {hasCheckIn && !hasCheckOut && (
+                              {hasCheckIn && !hasCheckOut && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <label className="flex items-center gap-2 cursor-pointer">
                                   <input
                                     type="radio"
@@ -593,20 +900,55 @@ export default function Attendance() {
                                   <span className="text-sm text-gray-700">Check-Out</span>
                                 </label>
                               )}
-                              {hasCheckOut && (
+                              {hasCheckOut && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                                 <div className="flex items-center gap-2 text-sm text-green-600">
                                   <CheckCircle className="w-4 h-4" />
                                   <span>Out: {attendanceStatus.checkOut ? new Date(attendanceStatus.checkOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                                 </div>
                               )}
+                              
+                              {/* Absent and Late Radio Buttons - Only show if no attendance marked */}
+                              {!hasCheckIn && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                                <>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${member._id}`}
+                                      checked={selectedType === 'absent'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [member._id]: 'absent' })}
+                                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                                    />
+                                    <span className="text-sm text-red-700">Absent</span>
+                                  </label>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${member._id}`}
+                                      checked={selectedType === 'late'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [member._id]: 'late' })}
+                                      className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
+                                    />
+                                    <span className="text-sm text-yellow-700">Late</span>
+                                  </label>
+                                </>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {((!hasCheckIn && selectedType === 'checkIn') || (hasCheckIn && !hasCheckOut && selectedType === 'checkOut')) && (
+                            {((!hasCheckIn && selectedType === 'checkIn') || 
+                              (hasCheckIn && !hasCheckOut && selectedType === 'checkOut') ||
+                              selectedType === 'absent' || 
+                              selectedType === 'late') && (
                               <button
-                                onClick={() => handleMarkAttendance(member._id, selectedType === 'checkIn' ? 'checkIn' : 'checkOut')}
+                                onClick={() => handleMarkAttendance(member._id, selectedType as any)}
                                 disabled={isLoading}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                                className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm ${
+                                  selectedType === 'absent' 
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : selectedType === 'late'
+                                    ? 'bg-yellow-600 hover:bg-yellow-700'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                               >
                                 {isLoading ? (
                                   <>
@@ -615,13 +957,19 @@ export default function Attendance() {
                                   </>
                                 ) : (
                                   <>
-                                    <Clock className="w-4 h-4" />
+                                    {selectedType === 'absent' ? (
+                                      <XCircle className="w-4 h-4" />
+                                    ) : selectedType === 'late' ? (
+                                      <Clock className="w-4 h-4" />
+                                    ) : (
+                                      <Clock className="w-4 h-4" />
+                                    )}
                                     Mark Attendance
                                   </>
                                 )}
                               </button>
                             )}
-                            {hasCheckIn && hasCheckOut && (
+                            {hasCheckIn && hasCheckOut && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
                               <span className="text-sm text-green-600 font-medium">Complete</span>
                             )}
                           </td>
@@ -666,46 +1014,187 @@ export default function Attendance() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Attendance
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Action
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Details
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTeachers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                         No teachers found
                       </td>
                     </tr>
                   ) : (
-                    filteredTeachers.map((teacher) => (
-                      <tr key={teacher._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {teacher.teacherId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {teacher.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {teacher.mobile}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {teacher.email}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                              teacher.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {teacher.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-500">Coming soon</span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredTeachers.map((teacher) => {
+                      const attendanceStatus = getTeacherAttendanceStatus(teacher._id);
+                      const hasCheckIn = attendanceStatus.hasCheckIn;
+                      const hasCheckOut = attendanceStatus.hasCheckOut;
+                      const selectedType = selectedAttendanceType[teacher._id];
+                      const isLoading = attendanceLoading[teacher._id];
+
+                      return (
+                        <tr key={teacher._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {teacher.teacherId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {teacher.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {teacher.mobile}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {teacher.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                teacher.isActive
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {teacher.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-2">
+                              {/* Check-In Radio */}
+                              {!hasCheckIn && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`attendance-${teacher._id}`}
+                                    checked={selectedType === 'checkIn'}
+                                    onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [teacher._id]: 'checkIn' })}
+                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-700">Check-In</span>
+                                </label>
+                              )}
+                              {hasCheckIn && (
+                                <div className="flex items-center gap-2 text-sm text-green-600">
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span>In: {attendanceStatus.checkIn ? new Date(attendanceStatus.checkIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                </div>
+                              )}
+                              
+                              {/* Check-Out Radio - Only show if check-in is marked */}
+                              {hasCheckIn && !hasCheckOut && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`attendance-${teacher._id}`}
+                                    checked={selectedType === 'checkOut'}
+                                    onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [teacher._id]: 'checkOut' })}
+                                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-700">Check-Out</span>
+                                </label>
+                              )}
+                              {hasCheckOut && (
+                                <div className="flex items-center gap-2 text-sm text-green-600">
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span>Out: {attendanceStatus.checkOut ? new Date(attendanceStatus.checkOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                </div>
+                              )}
+
+                              {/* Absent and Late Radio Buttons - Only show if no attendance marked */}
+                              {!hasCheckIn && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                                <>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${teacher._id}`}
+                                      checked={selectedType === 'absent'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [teacher._id]: 'absent' })}
+                                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                                    />
+                                    <span className="text-sm text-red-700">Absent</span>
+                                  </label>
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`attendance-${teacher._id}`}
+                                      checked={selectedType === 'late'}
+                                      onChange={() => setSelectedAttendanceType({ ...selectedAttendanceType, [teacher._id]: 'late' })}
+                                      className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
+                                    />
+                                    <span className="text-sm text-yellow-700">Late</span>
+                                  </label>
+                                </>
+                              )}
+                              {/* Display status if already marked as Absent or Late */}
+                              {attendanceStatus.status === 'Absent' && (
+                                <div className="flex items-center gap-2 text-sm text-red-600">
+                                  <XCircle className="w-4 h-4" />
+                                  <span className="font-semibold">Absent</span>
+                                </div>
+                              )}
+                              {attendanceStatus.status === 'Late' && (
+                                <div className="flex items-center gap-2 text-sm text-yellow-600">
+                                  <Clock className="w-4 h-4" />
+                                  <span className="font-semibold">Late</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {((!hasCheckIn && selectedType === 'checkIn') || 
+                              (hasCheckIn && !hasCheckOut && selectedType === 'checkOut') ||
+                              selectedType === 'absent' || 
+                              selectedType === 'late') && (
+                              <button
+                                onClick={() => handleMarkAttendance(teacher._id, selectedType as any)}
+                                disabled={isLoading}
+                                className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm ${
+                                  selectedType === 'absent' 
+                                    ? 'bg-red-600 hover:bg-red-700'
+                                    : selectedType === 'late'
+                                    ? 'bg-yellow-600 hover:bg-yellow-700'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                              >
+                                {isLoading ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Marking...
+                                  </>
+                                ) : (
+                                  <>
+                                    {selectedType === 'absent' ? (
+                                      <XCircle className="w-4 h-4" />
+                                    ) : selectedType === 'late' ? (
+                                      <Clock className="w-4 h-4" />
+                                    ) : (
+                                      <Clock className="w-4 h-4" />
+                                    )}
+                                    Mark Attendance
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            {hasCheckIn && hasCheckOut && attendanceStatus.status !== 'Absent' && attendanceStatus.status !== 'Late' && (
+                              <span className="text-sm text-green-600 font-medium">Complete</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button
+                              onClick={() => handleViewDetails(teacher)}
+                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -722,8 +1211,39 @@ export default function Attendance() {
             setShowDetailsModal(false);
             setSelectedPerson(null);
           }}
-          type={activeTab === 'students' ? 'student' : 'staff'}
+          type={activeTab === 'students' ? 'student' : activeTab === 'staff' ? 'staff' : 'teacher'}
           person={selectedPerson}
+        />
+      )}
+
+      {/* Time Selection Modal */}
+      {pendingAttendance && (
+        <TimeSelectionModal
+          isOpen={showTimeModal}
+          onClose={() => {
+            setShowTimeModal(false);
+            setPendingAttendance(null);
+          }}
+          onConfirm={(time) => {
+            if (pendingAttendance) {
+              processAttendance(pendingAttendance.id, pendingAttendance.type, time);
+            }
+            setShowTimeModal(false);
+            setPendingAttendance(null);
+          }}
+          title={
+            pendingAttendance.type === 'inTime' 
+              ? 'Select In-Time' 
+              : pendingAttendance.type === 'outTime'
+              ? 'Select Out-Time'
+              : pendingAttendance.type === 'checkIn'
+              ? 'Select Check-In Time'
+              : pendingAttendance.type === 'checkOut'
+              ? 'Select Check-Out Time'
+              : 'Select Time'
+          }
+          personName={pendingAttendance.personName}
+          selectedDate={selectedDate}
         />
       )}
     </div>

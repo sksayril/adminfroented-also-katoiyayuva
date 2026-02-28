@@ -16,6 +16,8 @@ import Staff from './pages/Staff';
 import Students from './pages/Students';
 import Attendance from './pages/Attendance';
 import Payments from './pages/Payments';
+import Expenses from './pages/Expenses';
+import DataUpload from './pages/DataUpload';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import CRM from './pages/CRM';
@@ -57,6 +59,8 @@ function App() {
                         <Route path="/students" element={<Students />} />
                         <Route path="/attendance" element={<Attendance />} />
                         <Route path="/payments" element={<Payments />} />
+                        <Route path="/expenses" element={<Expenses />} />
+                        <Route path="/data-upload" element={<DataUpload />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/default" element={<Default />} />
                         <Route path="/crm" element={<CRM />} />
