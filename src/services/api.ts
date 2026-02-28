@@ -132,7 +132,7 @@ export interface LogoutResponse {
 export const adminLogout = async (): Promise<LogoutResponse> => {
   try {
     const token = getToken();
-    
+
     if (!token) {
       throw {
         message: 'No token found',
@@ -167,7 +167,7 @@ export const adminLogout = async (): Promise<LogoutResponse> => {
     // Even if API call fails, clear local storage
     removeToken();
     removeUserData();
-    
+
     if (error instanceof Error) {
       throw {
         message: error.message,
@@ -190,10 +190,10 @@ export const authenticatedFetch = async (
   options: RequestInit = {}
 ): Promise<Response> => {
   const token = getToken();
-  
+
   // Don't set Content-Type for FormData - browser will set it with boundary
   const isFormData = options.body instanceof FormData;
-  
+
   const headers: Record<string, string> = {
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(options.headers as Record<string, string> || {}),
@@ -522,7 +522,7 @@ export interface CreateCourseResponse {
 export const createCourse = async (courseData: CreateCourseRequest): Promise<CreateCourseResponse> => {
   try {
     const token = getToken();
-    
+
     if (!token) {
       throw {
         message: 'No token found',
@@ -539,11 +539,11 @@ export const createCourse = async (courseData: CreateCourseRequest): Promise<Cre
     formData.append('courseFees', courseData.courseFees.toString());
     formData.append('admissionFees', courseData.admissionFees.toString());
     formData.append('monthlyFees', courseData.monthlyFees.toString());
-    
+
     if (courseData.image) {
       formData.append('image', courseData.image);
     }
-    
+
     if (courseData.pdf) {
       formData.append('pdf', courseData.pdf);
     }
@@ -729,7 +729,7 @@ export const getTeacherById = async (id: string): Promise<TeacherResponse> => {
 export const createTeacher = async (teacherData: CreateTeacherRequest): Promise<CreateTeacherResponse> => {
   try {
     const token = getToken();
-    
+
     if (!token) {
       throw {
         message: 'No token found',
@@ -745,11 +745,11 @@ export const createTeacher = async (teacherData: CreateTeacherRequest): Promise<
     formData.append('password', teacherData.password);
     formData.append('salaryType', teacherData.salaryType);
     formData.append('salaryRate', teacherData.salaryRate.toString());
-    
+
     if (teacherData.assignedBatches && teacherData.assignedBatches.length > 0) {
       formData.append('assignedBatches', JSON.stringify(teacherData.assignedBatches));
     }
-    
+
     if (teacherData.teacherImage) {
       formData.append('teacherImage', teacherData.teacherImage);
     }
@@ -1490,6 +1490,17 @@ export interface CreateStudentResponse {
   };
 }
 
+export interface UpdateStudentResponse {
+  success: boolean;
+  message: string;
+  data: Student;
+}
+
+export interface DeleteStudentResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface StudentsQueryParams {
   status?: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'DROPPED';
   batchId?: string;
@@ -1550,7 +1561,7 @@ export const getStudents = async (params?: StudentsQueryParams): Promise<Student
   try {
     let url = '/admin/students';
     const queryParams = new URLSearchParams();
-    
+
     if (params?.status) {
       queryParams.append('status', params.status);
     }
@@ -1560,7 +1571,7 @@ export const getStudents = async (params?: StudentsQueryParams): Promise<Student
     if (params?.courseId) {
       queryParams.append('courseId', params.courseId);
     }
-    
+
     if (queryParams.toString()) {
       url += `?${queryParams.toString()}`;
     }
@@ -1643,7 +1654,7 @@ export const registerStudent = async (
     if (studentData.contact_details) {
       formData.append('contact_details', JSON.stringify(studentData.contact_details));
     }
-    
+
     // Optional nested objects - only include if they have data
     if (studentData.admission && (studentData.admission.admission_date || studentData.admission.course?.code)) {
       formData.append('admission', JSON.stringify(studentData.admission));
@@ -1708,6 +1719,122 @@ export const registerStudent = async (
     if (!response.ok) {
       const error: ApiError = {
         message: data.message || 'Failed to register student',
+        status: response.status,
+      };
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Update Student API
+export const updateStudent = async (
+  id: string,
+  studentData: Partial<ManualStudentRegistrationData>,
+  files?: {
+    studentPhoto?: File;
+    studentSignature?: File;
+    officeSignature?: File;
+    formScanImage?: File;
+    aadharCardImage?: File;
+    schoolCertificateImage?: File;
+  }
+): Promise<UpdateStudentResponse> => {
+  try {
+    const formData = new FormData();
+
+    // Add nested objects as JSON strings
+    if (studentData.student) {
+      formData.append('student', JSON.stringify(studentData.student));
+    }
+    if (studentData.contact_details) {
+      formData.append('contact_details', JSON.stringify(studentData.contact_details));
+    }
+    if (studentData.admission) {
+      formData.append('admission', JSON.stringify(studentData.admission));
+    }
+    if (studentData.family_details) {
+      formData.append('family_details', JSON.stringify(studentData.family_details));
+    }
+    if (studentData.address) {
+      formData.append('address', JSON.stringify(studentData.address));
+    }
+    if (studentData.education) {
+      formData.append('education', JSON.stringify(studentData.education));
+    }
+    if (studentData.office_use) {
+      formData.append('office_use', JSON.stringify(studentData.office_use));
+    }
+
+    // Add simple fields
+    if (studentData.status) {
+      formData.append('status', studentData.status);
+    }
+    if (studentData.batchId) {
+      formData.append('batchId', studentData.batchId);
+    }
+    if (studentData.courseId) {
+      formData.append('courseId', studentData.courseId);
+    }
+
+    // Add files
+    if (files) {
+      if (files.studentPhoto) formData.append('studentPhoto', files.studentPhoto);
+      if (files.studentSignature) formData.append('studentSignature', files.studentSignature);
+      if (files.officeSignature) formData.append('officeSignature', files.officeSignature);
+      if (files.formScanImage) formData.append('formScanImage', files.formScanImage);
+      if (files.aadharCardImage) formData.append('aadharCardImage', files.aadharCardImage);
+      if (files.schoolCertificateImage) formData.append('schoolCertificateImage', files.schoolCertificateImage);
+    }
+
+    const response = await authenticatedFetch(`/admin/students/${id}`, {
+      method: 'PATCH',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error: ApiError = {
+        message: data.message || 'Failed to update student',
+        status: response.status,
+      };
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Delete Student API
+export const deleteStudent = async (id: string): Promise<DeleteStudentResponse> => {
+  try {
+    const response = await authenticatedFetch(`/admin/students/${id}`, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error: ApiError = {
+        message: data.message || 'Failed to delete student',
         status: response.status,
       };
       throw error;

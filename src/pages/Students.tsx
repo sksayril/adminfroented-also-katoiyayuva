@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { GraduationCap, Plus, Loader2, Eye, CheckCircle, XCircle, Filter, Search, MoreVertical, UserCheck, Calendar, DollarSign } from 'lucide-react';
-import { getStudents, Student, StudentsQueryParams, ApiError, getCourses, Course, getBatches, Batch } from '../services/api';
+import { GraduationCap, Plus, Eye, CheckCircle, XCircle, Filter, Search, Edit, Trash2, Calendar } from 'lucide-react';
+import { getStudents, Student, StudentsQueryParams, ApiError, getCourses, Course, getBatches, Batch, deleteStudent } from '../services/api';
 import { toast } from 'react-toastify';
 import RegisterStudentModal from '../components/RegisterStudentModal';
 import StudentDetailsModal from '../components/StudentDetailsModal';
-import { SkeletonStatsGrid, SkeletonTable, Skeleton } from '../components/Skeleton';
+import UpdateStudentModal from '../components/UpdateStudentModal';
+import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+import { SkeletonTable } from '../components/Skeleton';
 
 export default function Students() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -17,7 +19,10 @@ export default function Students() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -109,6 +114,31 @@ export default function Students() {
     setShowDetailsModal(true);
   };
 
+  const handleEdit = (student: Student) => {
+    setSelectedStudentId(student._id);
+    setShowUpdateModal(true);
+  };
+
+  const handleDeleteClick = (student: Student) => {
+    setSelectedStudentId(student._id);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setDeleting(true);
+      await deleteStudent(selectedStudentId);
+      toast.success('Student deleted successfully');
+      setShowDeleteDialog(false);
+      fetchStudents();
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Failed to delete student');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -130,7 +160,7 @@ export default function Students() {
           </button>
         </div>
 
-        {/* Summary Stats Cards - Moved to top */}
+        {/* Summary Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
@@ -199,11 +229,10 @@ export default function Students() {
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                showFilters
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${showFilters
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
             >
               <Filter className="w-5 h-5" />
               Filters
@@ -223,7 +252,7 @@ export default function Students() {
                       status: e.target.value ? (e.target.value as StudentsQueryParams['status']) : undefined,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Status</option>
                   <option value="ACTIVE">Active</option>
@@ -242,7 +271,7 @@ export default function Students() {
                       courseId: e.target.value || undefined,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Courses</option>
                   {courses.map((course) => (
@@ -262,7 +291,7 @@ export default function Students() {
                       batchId: e.target.value || undefined,
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Batches</option>
                   {batches.map((batch) => (
@@ -279,21 +308,6 @@ export default function Students() {
         {/* Students Table */}
         {loading ? (
           <div className="space-y-4">
-            {/* Summary Cards Skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-gray-300">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <Skeleton variant="text" width="60%" height={16} className="mb-2" />
-                      <Skeleton variant="text" width="40%" height={32} />
-                    </div>
-                    <Skeleton variant="circular" width={48} height={48} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Table Skeleton */}
             <SkeletonTable rows={8} columns={6} />
           </div>
         ) : error ? (
@@ -311,24 +325,12 @@ export default function Students() {
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Student
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Contact
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Course & Batch
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Fees
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Student</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Contact</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Course & Batch</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Fees</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -340,10 +342,10 @@ export default function Students() {
                             <img
                               src={student.studentPhoto}
                               alt={student.name}
-                              className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-gray-200"
+                              className="w-10 h-10 rounded-full object-cover mr-3 border"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg mr-3 shadow-sm">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold mr-3">
                               {student.name.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -355,40 +357,20 @@ export default function Students() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{student.mobile}</div>
-                        {student.email && (
-                          <div className="text-xs text-gray-500 truncate max-w-[200px]">{student.email}</div>
-                        )}
+                        <div className="text-xs text-gray-500">{student.email}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {student.courseId ? (
-                            typeof student.courseId === 'object' ? student.courseId.name : 'N/A'
-                          ) : (
-                            <span className="text-gray-400">No Course</span>
-                          )}
+                          {typeof student.courseId === 'object' ? student.courseId?.name : 'N/A'}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {student.batchId ? (
-                            typeof student.batchId === 'object' ? student.batchId.name : 'N/A'
-                          ) : (
-                            <span className="text-gray-400">No Batch</span>
-                          )}
+                          {typeof student.batchId === 'object' ? student.batchId?.name : 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {student.totalFees !== undefined ? (
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900">
-                              ₹{student.totalFees?.toLocaleString('en-IN')}
-                            </div>
-                            {student.dueAmount !== undefined && student.dueAmount > 0 && (
-                              <div className="text-xs font-medium text-red-600 mt-1">
-                                Due: ₹{student.dueAmount.toLocaleString('en-IN')}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">N/A</span>
+                        <div className="text-sm font-semibold text-gray-900">₹{student.totalFees?.toLocaleString()}</div>
+                        {student.dueAmount! > 0 && (
+                          <div className="text-xs font-medium text-red-600">Due: ₹{student.dueAmount?.toLocaleString()}</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -398,17 +380,24 @@ export default function Students() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleViewDetails(student)}
-                            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all hover:scale-110"
-                            title="View Details"
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View"
                           >
-                            <Eye className="w-5 h-5" />
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => toast.info('More actions will be implemented')}
-                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all hover:scale-110"
-                            title="More Actions"
+                            onClick={() => handleEdit(student)}
+                            className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Edit"
                           >
-                            <MoreVertical className="w-5 h-5" />
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(student)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -420,8 +409,7 @@ export default function Students() {
           </div>
         )}
 
-
-        {/* Register Student Modal */}
+        {/* Modals */}
         <RegisterStudentModal
           isOpen={showRegisterModal}
           onClose={() => setShowRegisterModal(false)}
@@ -431,7 +419,6 @@ export default function Students() {
           }}
         />
 
-        {/* Student Details Modal */}
         <StudentDetailsModal
           isOpen={showDetailsModal}
           onClose={() => {
@@ -439,6 +426,31 @@ export default function Students() {
             setSelectedStudentId('');
           }}
           studentId={selectedStudentId}
+        />
+
+        <UpdateStudentModal
+          isOpen={showUpdateModal}
+          onClose={() => {
+            setShowUpdateModal(false);
+            setSelectedStudentId('');
+          }}
+          onSubmit={() => {
+            setShowUpdateModal(false);
+            fetchStudents();
+          }}
+          studentId={selectedStudentId}
+        />
+
+        <DeleteConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={() => {
+            setShowDeleteDialog(false);
+            setSelectedStudentId('');
+          }}
+          onConfirm={handleDeleteConfirm}
+          loading={deleting}
+          title="Delete Student"
+          message="Are you sure you want to delete this student? All their records will be permanently removed."
         />
       </div>
     </div>
