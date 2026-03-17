@@ -464,24 +464,26 @@ export default function Dashboard() {
               <h4 className="text-sm font-semibold text-gray-700 mb-2">Recent Students</h4>
               <div className="space-y-2">
                 {recentActivities.students.map((student) => (
-                  <div key={student._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                        {student.studentName.charAt(0).toUpperCase()}
+                  student && (
+                    <div key={student._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                          {student.studentName?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{student.studentName || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500 font-mono">{student.studentId || 'N/A'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{student.studentName}</p>
-                        <p className="text-xs text-gray-500 font-mono">{student.studentId}</p>
-                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        student.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                        student.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {student.status || 'N/A'}
+                      </span>
                     </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      student.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
-                      student.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {student.status}
-                    </span>
-                  </div>
+                  )
                 ))}
               </div>
             </div>
@@ -494,17 +496,21 @@ export default function Dashboard() {
                   <div key={payment._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
-                        {typeof payment.studentId === 'object' ? payment.studentId.studentName : 'Unknown'}
+                        {payment.studentId && typeof payment.studentId === 'object' && payment.studentId !== null
+                          ? payment.studentId.studentName || 'Unknown'
+                          : 'Unknown'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {typeof payment.studentId === 'object' ? payment.studentId.studentId : ''}
+                        {payment.studentId && typeof payment.studentId === 'object' && payment.studentId !== null
+                          ? payment.studentId.studentId || ''
+                          : ''}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-green-600">
-                        ₹{payment.amount.toLocaleString('en-IN')}
+                        ₹{payment.amount?.toLocaleString('en-IN') || '0'}
                       </p>
-                      <p className="text-xs text-gray-500">{payment.paymentMode}</p>
+                      <p className="text-xs text-gray-500">{payment.paymentMode || 'N/A'}</p>
                     </div>
                   </div>
                 ))}

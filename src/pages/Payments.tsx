@@ -316,13 +316,13 @@ export default function Payments() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                          {getStudentName(payment.studentId).charAt(0).toUpperCase()}
+                          {getStudentName(payment.studentId)?.charAt(0)?.toUpperCase() || '?'}
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-gray-900">
-                            {getStudentName(payment.studentId)}
+                            {getStudentName(payment.studentId) || 'Unknown'}
                           </div>
-                          <div className="text-xs text-gray-500">{getStudentId(payment.studentId)}</div>
+                          <div className="text-xs text-gray-500">{getStudentId(payment.studentId) || 'N/A'}</div>
                         </div>
                       </div>
                     </td>
