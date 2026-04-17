@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Plus, Loader2, Eye, Edit, Trash2, Filter, Search, DollarSign, Calendar, User } from 'lucide-react';
-import { getPayments, Payment, PaymentsQueryParams, ApiError, getStudents, Student } from '../services/api';
+import { CreditCard, Plus, Loader2, Eye, Edit, Trash2, Filter, Search, Download } from 'lucide-react';
+import { getPayments, Payment, PaymentsQueryParams, ApiError } from '../services/api';
 import { toast } from 'react-toastify';
 import CreatePaymentModal from '../components/CreatePaymentModal';
 import UpdatePaymentModal from '../components/UpdatePaymentModal';
@@ -23,6 +23,7 @@ export default function Payments() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchPayments();
@@ -143,6 +144,47 @@ export default function Payments() {
     );
   });
 
+  const handleExportPayments = async () => {
+    if (filteredPayments.length === 0) {
+      toast.info('No payment records available to export');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      const XLSX = await import('xlsx');
+
+      const exportRows = filteredPayments.map((payment) => ({
+        ReceiptNumber: payment.receiptNumber || 'N/A',
+        StudentId: getStudentId(payment.studentId) || 'N/A',
+        StudentName: getStudentName(payment.studentId) || 'Unknown',
+        Amount: payment.amount,
+        Discount: payment.discount || 0,
+        PaymentMode: payment.paymentMode || 'N/A',
+        Date: payment.createdAt
+          ? new Date(payment.createdAt).toLocaleDateString('en-IN', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : 'N/A',
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Payments');
+
+      const fileDate = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(workbook, `payments-${fileDate}.xlsx`);
+      toast.success('Payments exported to Excel successfully');
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Failed to export payments');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading && payments.length === 0) {
     return (
       <div className="p-6 space-y-6">
@@ -180,13 +222,23 @@ export default function Payments() {
           </h1>
           <p className="text-gray-600 mt-1">Manage all payment records</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Create Payment
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportPayments}
+            disabled={exporting}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            {exporting ? 'Exporting...' : 'Export Excel'}
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Create Payment
+          </button>
+        </div>
       </div>
 
       {/* Filters and Search */}
