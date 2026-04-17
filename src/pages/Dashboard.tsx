@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Home, Users, UserCheck, TrendingUp, DollarSign, AlertCircle,
   GraduationCap, BookOpen, Calendar, FileText, CreditCard, BarChart3,
@@ -22,6 +23,7 @@ import { SkeletonStatsGrid, SkeletonChart, SkeletonList, SkeletonCard } from '..
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { branch } = useAuth();
   const { theme } = useTheme();
   const [dashboardData, setDashboardData] = useState<ComprehensiveDashboardData | null>(null);
@@ -159,7 +161,11 @@ export default function Dashboard() {
       {/* Overview Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Students */}
-        <div className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
+        <button
+          type="button"
+          onClick={() => navigate('/students')}
+          className="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500 text-left transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer w-full"
+        >
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-600">Total Students</h3>
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -172,10 +178,14 @@ export default function Dashboard() {
             <span className="text-yellow-600">Pending: {overview.pendingStudents}</span>
             <span className="text-red-600">Dropped: {overview.droppedStudents}</span>
           </div>
-        </div>
+        </button>
 
         {/* Staff */}
-        <div className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
+        <button
+          type="button"
+          onClick={() => navigate('/staff')}
+          className="bg-white rounded-lg shadow p-5 border-l-4 border-green-500 text-left transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer w-full"
+        >
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-600">Total Staff</h3>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -184,10 +194,14 @@ export default function Dashboard() {
           </div>
           <div className="text-3xl font-bold text-gray-800">{overview.totalStaff}</div>
           <p className="text-xs text-gray-500 mt-1">Active: {overview.activeStaff}</p>
-        </div>
+        </button>
 
         {/* Teachers */}
-        <div className="bg-white rounded-lg shadow p-5 border-l-4 border-purple-500">
+        <button
+          type="button"
+          onClick={() => navigate('/teachers')}
+          className="bg-white rounded-lg shadow p-5 border-l-4 border-purple-500 text-left transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer w-full"
+        >
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-600">Total Teachers</h3>
             <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -196,10 +210,14 @@ export default function Dashboard() {
           </div>
           <div className="text-3xl font-bold text-gray-800">{overview.totalTeachers}</div>
           <p className="text-xs text-gray-500 mt-1">Active: {overview.activeTeachers}</p>
-        </div>
+        </button>
 
         {/* Batches */}
-        <div className="bg-white rounded-lg shadow p-5 border-l-4 border-orange-500">
+        <button
+          type="button"
+          onClick={() => navigate('/batches')}
+          className="bg-white rounded-lg shadow p-5 border-l-4 border-orange-500 text-left transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer w-full"
+        >
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-600">Total Batches</h3>
             <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -208,7 +226,7 @@ export default function Dashboard() {
           </div>
           <div className="text-3xl font-bold text-gray-800">{overview.totalBatches}</div>
           <p className="text-xs text-gray-500 mt-1">Active: {overview.activeBatches}</p>
-        </div>
+        </button>
       </div>
 
       {/* Today's Statistics */}

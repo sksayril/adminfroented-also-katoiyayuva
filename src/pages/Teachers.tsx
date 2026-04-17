@@ -210,7 +210,7 @@ export default function Teachers() {
         </div>
       )}
 
-      {/* Teachers Grid */}
+      {/* Teachers Table */}
       {teachers.length === 0 && !loading ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -224,163 +224,145 @@ export default function Teachers() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teachers.map((teacher) => (
-            <div
-              key={teacher._id}
-              className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-            >
-              {/* Teacher Image/Header */}
-              <div className="relative h-48 bg-gradient-to-br from-slate-700 to-slate-800">
-                {teacher.imageUrl ? (
-                  <img
-                    src={teacher.imageUrl}
-                    alt={teacher.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImageIcon className="w-16 h-16 text-white/50" />
-                  </div>
-                )}
-                <div className="absolute top-4 right-4">
-                  {teacher.isActive ? (
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Active
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                      <XCircle className="w-3 h-3" />
-                      Inactive
-                    </span>
-                  )}
-                </div>
-                <div className="absolute top-4 left-4">
-                  <span className="px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-semibold rounded-full">
-                    {teacher.teacherId}
-                  </span>
-                </div>
-              </div>
-
-              {/* Teacher Content */}
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-2">{teacher.name}</h3>
-
-                {/* Contact Info */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Mail className="w-4 h-4 mr-2 text-slate-500" />
-                    <span className="truncate">{teacher.email}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Phone className="w-4 h-4 mr-2 text-slate-500" />
-                    <span>{teacher.mobile}</span>
-                  </div>
-                </div>
-
-                {/* Salary Info */}
-                <div className="bg-slate-50 rounded-lg p-3 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-600">Salary Type</span>
-                    <span className="text-xs font-semibold text-slate-700">
-                      {getSalaryTypeLabel(teacher.salaryType)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Rate</span>
-                    <span className="text-sm font-bold text-slate-800">
-                      ₹{teacher.salaryRate.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  {teacher.currentMonthClasses !== undefined && (
-                    <div className="mt-2 pt-2 border-t border-slate-200">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600">This Month</span>
-                        <span className="font-semibold text-slate-700">
-                          {teacher.currentMonthClasses} classes
-                        </span>
+        <div className="bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] table-fixed divide-y divide-slate-200">
+              <thead className="bg-gradient-to-r from-slate-700 to-slate-800 text-white">
+                <tr>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-slate-700">Teacher</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Contact</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Salary</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Month</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Password</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Batches</th>
+                  <th className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-4 text-center text-xs font-semibold uppercase tracking-wider sticky right-0 z-20 bg-slate-800">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {teachers.map((teacher, index) => (
+                  <tr key={teacher._id} className={index % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/40 hover:bg-slate-100/70'}>
+                    <td className={`px-4 py-4 align-top sticky left-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-200 flex items-center justify-center shrink-0">
+                          {teacher.imageUrl ? (
+                            <img
+                              src={teacher.imageUrl}
+                              alt={teacher.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <ImageIcon className="w-6 h-6 text-slate-500" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{teacher.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">{teacher.teacherId}</p>
+                        </div>
                       </div>
-                      {teacher.currentMonthSalary !== undefined && (
-                        <div className="flex items-center justify-between text-xs mt-1">
-                          <span className="text-gray-600">Salary</span>
-                          <span className="font-bold text-green-600">
-                            ₹{teacher.currentMonthSalary.toLocaleString('en-IN')}
-                          </span>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center text-sm text-slate-700">
+                          <Mail className="w-4 h-4 mr-2 text-slate-500" />
+                          <span className="truncate max-w-[160px]">{teacher.email}</span>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div className="mb-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword[teacher._id] ? 'text' : 'password'}
-                      value={teacher.password}
-                      readOnly
-                      className="w-full px-3 py-2 pr-10 text-sm border border-gray-300 rounded-lg bg-gray-50"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => togglePasswordVisibility(teacher._id)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword[teacher._id] ? (
-                        <EyeOff className="w-4 h-4" />
+                        <div className="flex items-center text-sm text-slate-700">
+                          <Phone className="w-4 h-4 mr-2 text-slate-500" />
+                          <span>{teacher.mobile}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div>
+                        <p className="text-xs text-slate-500">{getSalaryTypeLabel(teacher.salaryType)}</p>
+                        <p className="text-sm font-bold text-slate-900 mt-1">₹{teacher.salaryRate.toLocaleString('en-IN')}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div>
+                        <p className="text-sm text-slate-700">{teacher.currentMonthClasses ?? 0} classes</p>
+                        <p className="text-sm font-bold text-green-600 mt-1">
+                          ₹{(teacher.currentMonthSalary ?? 0).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="relative">
+                        <input
+                          type={showPassword[teacher._id] ? 'text' : 'password'}
+                          value={teacher.password}
+                          readOnly
+                          className="w-full max-w-[160px] px-3 py-2 pr-10 text-sm border border-slate-200 rounded-lg bg-slate-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility(teacher._id)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          {showPassword[teacher._id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.isArray(teacher.assignedBatches) && teacher.assignedBatches.length > 0 ? (
+                          <>
+                            {teacher.assignedBatches.slice(0, 2).map((batch, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md">
+                                {typeof batch === 'object' ? batch.name : batch}
+                              </span>
+                            ))}
+                            {teacher.assignedBatches.length > 2 && (
+                              <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-md">
+                                +{teacher.assignedBatches.length - 2} more
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs text-slate-400">No batches</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      {teacher.isActive ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                          <CheckCircle className="w-3 h-3" />
+                          Active
+                        </span>
                       ) : (
-                        <Eye className="w-4 h-4" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
+                          <XCircle className="w-3 h-3" />
+                          Inactive
+                        </span>
                       )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Assigned Batches */}
-                {Array.isArray(teacher.assignedBatches) && teacher.assignedBatches.length > 0 && (
-                  <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Assigned Batches ({teacher.assignedBatches.length})
-                    </label>
-                    <div className="space-y-1">
-                      {teacher.assignedBatches.slice(0, 2).map((batch, idx) => (
-                        <div key={idx} className="text-xs text-gray-600 bg-slate-50 px-2 py-1 rounded">
-                          {typeof batch === 'object' ? batch.name : batch}
-                        </div>
-                      ))}
-                      {teacher.assignedBatches.length > 2 && (
-                        <div className="text-xs text-slate-600">
-                          +{teacher.assignedBatches.length - 2} more
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => handleUpdateClick(teacher)}
-                    className="flex-1 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(teacher)}
-                    className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+                    </td>
+                    <td className={`px-4 py-4 align-top sticky right-0 z-10 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleUpdateClick(teacher)}
+                          className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5"
+                        >
+                          <Edit className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(teacher)}
+                          className="px-2.5 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

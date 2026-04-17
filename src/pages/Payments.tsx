@@ -11,6 +11,8 @@ import { SkeletonTable, Skeleton } from '../components/Skeleton';
 export default function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [filters, setFilters] = useState<PaymentsQueryParams>({});
   const [showFilters, setShowFilters] = useState(false);
@@ -71,6 +73,8 @@ export default function Payments() {
     if (!selectedPayment) return;
 
     try {
+      setDeleting(true);
+      setDeletingPaymentId(selectedPayment._id);
       const { deletePayment } = await import('../services/api');
       await deletePayment(selectedPayment._id);
       toast.success('Payment deleted successfully');
@@ -80,6 +84,9 @@ export default function Payments() {
     } catch (err) {
       const apiError = err as ApiError;
       toast.error(apiError.message || 'Failed to delete payment');
+    } finally {
+      setDeleting(false);
+      setDeletingPaymentId('');
     }
   };
 
@@ -368,10 +375,15 @@ export default function Payments() {
                         </button>
                         <button
                           onClick={() => handleDeleteClick(payment)}
-                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all hover:scale-110"
+                          disabled={deleting && deletingPaymentId === payment._id}
+                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all hover:scale-110 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                           title="Delete Payment"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          {deleting && deletingPaymentId === payment._id ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+                          ) : (
+                            <Trash2 className="w-5 h-5" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -417,13 +429,29 @@ export default function Payments() {
       <DeleteConfirmDialog
         isOpen={showDeleteDialog}
         onClose={() => {
+          if (deleting) return;
           setShowDeleteDialog(false);
           setSelectedPayment(null);
         }}
         onConfirm={handleDeleteConfirm}
+        loading={deleting}
         title="Delete Payment"
         message={`Are you sure you want to delete payment ${selectedPayment?.receiptNumber || ''}? This action will reverse the payment and update the student's balance.`}
       />
+
+      {/* Loader overlay for slow API responses while data exists */}
+      {loading && payments.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-2xl px-8 py-7 flex flex-col items-center gap-3 border border-blue-100">
+            <div className="relative">
+              <div className="w-14 h-14 rounded-full border-4 border-blue-100" />
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin absolute inset-0 m-auto" />
+            </div>
+            <p className="text-sm font-semibold text-gray-800">Loading payments...</p>
+            <p className="text-xs text-gray-500">Please wait while we fetch latest data</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

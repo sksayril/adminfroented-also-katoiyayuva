@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Plus, Loader2, Edit, Trash2, Clock, DollarSign, Users, BookOpen, User, CheckCircle, XCircle, Filter, Eye, UserPlus } from 'lucide-react';
+import { Calendar, Plus, Loader2, Edit, Trash2, Clock, BookOpen, User, CheckCircle, XCircle, Filter, Eye, UserPlus } from 'lucide-react';
 import { getBatches, deleteBatch, Batch, BatchesQueryParams, ApiError } from '../services/api';
 import { toast } from 'react-toastify';
 import CreateBatchModal from '../components/CreateBatchModal';
@@ -94,19 +94,6 @@ export default function Batches() {
       toast.error(apiError.message || 'Failed to delete batch');
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const getBatchTypeColor = (type: string) => {
-    switch (type) {
-      case 'OFFLINE':
-        return 'bg-blue-100 text-blue-700';
-      case 'ONLINE':
-        return 'bg-purple-100 text-purple-700';
-      case 'HYBRID':
-        return 'bg-orange-100 text-orange-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
     }
   };
 
@@ -273,8 +260,6 @@ export default function Batches() {
             const courseName = typeof batch.courseId === 'object' && batch.courseId !== null ? batch.courseId.name : 'N/A';
             const courseCategory = typeof batch.courseId === 'object' && batch.courseId !== null ? batch.courseId.courseCategory : '';
             const teacherName = typeof batch.teacherId === 'object' && batch.teacherId !== null ? batch.teacherId.name : 'N/A';
-            const teacherEmail = typeof batch.teacherId === 'object' && batch.teacherId !== null ? batch.teacherId.email : '';
-
             return (
               <div
                 key={batch._id}
@@ -300,30 +285,53 @@ export default function Batches() {
 
                 {/* Batch Content */}
                 <div className="p-6">
-                  {/* Time Slot */}
-                  <div className="flex items-center text-sm text-gray-600 mb-3">
-                    <Clock className="w-4 h-4 mr-2 text-slate-500" />
-                    <span>{batch.timeSlot}</span>
-                  </div>
-
-                  {/* Weekdays */}
-                  {batch.weekdays && batch.weekdays.length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex items-center text-sm text-gray-600 mb-2">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                        <span className="font-medium">Weekdays:</span>
+                  {/* Day-wise schedule */}
+                  {batch.daySchedules && batch.daySchedules.length > 0 ? (
+                    <div className="mb-3 space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar className="w-4 h-4 mr-2 text-slate-500" />
+                        <span className="font-medium">Day Schedules</span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {batch.weekdays.map((day, index) => (
-                          <span
+                      <div className="space-y-1.5">
+                        {batch.daySchedules.map((schedule, index) => (
+                          <div
                             key={index}
-                            className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full"
+                            className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5"
                           >
-                            {day.substring(0, 3)}
-                          </span>
+                            <span className="font-semibold text-slate-700">{schedule.day}</span>
+                            <span className="text-slate-600">{schedule.startTime} - {schedule.endTime}</span>
+                          </div>
                         ))}
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      {/* Legacy Time Slot */}
+                      <div className="flex items-center text-sm text-gray-600 mb-3">
+                        <Clock className="w-4 h-4 mr-2 text-slate-500" />
+                        <span>{batch.timeSlot}</span>
+                      </div>
+
+                      {/* Legacy Weekdays */}
+                      {batch.weekdays && batch.weekdays.length > 0 && (
+                        <div className="mb-3">
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <Calendar className="w-4 h-4 mr-2 text-gray-500" />
+                            <span className="font-medium">Weekdays:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {batch.weekdays.map((day, index) => (
+                              <span
+                                key={index}
+                                className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full"
+                              >
+                                {day.substring(0, 3)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Course Info */}

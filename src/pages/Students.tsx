@@ -139,6 +139,17 @@ export default function Students() {
     }
   };
 
+  const activeCount = students.filter((s) => s.status === 'ACTIVE').length;
+  const pendingCount = students.filter((s) => s.status === 'PENDING').length;
+  const droppedCount = students.filter((s) => s.status === 'DROPPED').length;
+
+  const applyStatusFilter = (status?: StudentsQueryParams['status']) => {
+    setFilters((prev) => ({
+      ...prev,
+      status,
+    }));
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -162,7 +173,13 @@ export default function Students() {
 
         {/* Summary Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500">
+          <button
+            type="button"
+            onClick={() => applyStatusFilter(undefined)}
+            className={`bg-white rounded-lg shadow-sm p-6 border-l-4 border-blue-500 text-left w-full transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              !filters.status ? 'ring-2 ring-blue-200' : ''
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Total Students</p>
@@ -172,46 +189,64 @@ export default function Students() {
                 <GraduationCap className="w-6 h-6 text-blue-600" />
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500">
+          </button>
+          <button
+            type="button"
+            onClick={() => applyStatusFilter('ACTIVE')}
+            className={`bg-white rounded-lg shadow-sm p-6 border-l-4 border-green-500 text-left w-full transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              filters.status === 'ACTIVE' ? 'ring-2 ring-green-200' : ''
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Active</p>
                 <p className="text-3xl font-bold text-green-600">
-                  {students.filter((s) => s.status === 'ACTIVE').length}
+                  {activeCount}
                 </p>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500">
+          </button>
+          <button
+            type="button"
+            onClick={() => applyStatusFilter('PENDING')}
+            className={`bg-white rounded-lg shadow-sm p-6 border-l-4 border-yellow-500 text-left w-full transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              filters.status === 'PENDING' ? 'ring-2 ring-yellow-200' : ''
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Pending</p>
                 <p className="text-3xl font-bold text-yellow-600">
-                  {students.filter((s) => s.status === 'PENDING').length}
+                  {pendingCount}
                 </p>
               </div>
               <div className="p-3 bg-yellow-100 rounded-full">
                 <Calendar className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500">
+          </button>
+          <button
+            type="button"
+            onClick={() => applyStatusFilter('DROPPED')}
+            className={`bg-white rounded-lg shadow-sm p-6 border-l-4 border-red-500 text-left w-full transition-all hover:shadow-md hover:-translate-y-0.5 ${
+              filters.status === 'DROPPED' ? 'ring-2 ring-red-200' : ''
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Dropped</p>
                 <p className="text-3xl font-bold text-red-600">
-                  {students.filter((s) => s.status === 'DROPPED').length}
+                  {droppedCount}
                 </p>
               </div>
               <div className="p-3 bg-red-100 rounded-full">
                 <XCircle className="w-6 h-6 text-red-600" />
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Filters and Search */}
@@ -368,10 +403,22 @@ export default function Students() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-gray-900">₹{student.totalFees?.toLocaleString()}</div>
-                        {student.dueAmount! > 0 && (
-                          <div className="text-xs font-medium text-red-600">Due: ₹{student.dueAmount?.toLocaleString()}</div>
-                        )}
+                        {(() => {
+                          const batchName =
+                            typeof student.batchId === 'object' && student.batchId
+                              ? student.batchId.name || ''
+                              : '';
+                          const isKidsBatch = batchName.trim().toLowerCase().startsWith('kids');
+
+                          return (
+                            <>
+                              <div className="text-sm font-semibold text-gray-900">₹{student.totalFees?.toLocaleString()}</div>
+                              {!isKidsBatch && student.dueAmount! > 0 && (
+                                <div className="text-xs font-medium text-red-600">Due: ₹{student.dueAmount?.toLocaleString()}</div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(student.status)}

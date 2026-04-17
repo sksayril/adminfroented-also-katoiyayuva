@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ClipboardCheck, GraduationCap, UserCheck, Calendar, Search, Loader2, Clock, CheckCircle, Eye, XCircle } from 'lucide-react';
+import { ClipboardCheck, GraduationCap, UserCheck, Calendar, Search, Loader2, Clock, CheckCircle, Eye, XCircle, Download } from 'lucide-react';
 import { 
   getStudents, Student, 
   getStaff, Staff, 
@@ -13,6 +13,7 @@ import {
   updateStaffAttendance,
   updateStudentAttendance,
   updateTeacherAttendance,
+  exportAllStudentAttendanceExcel,
   ApiError 
 } from '../services/api';
 import { toast } from 'react-toastify';
@@ -27,6 +28,9 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [exporting, setExporting] = useState(false);
+  const [exportBatchId, setExportBatchId] = useState('');
+  const [exportStatus, setExportStatus] = useState<'' | 'Present' | 'Absent' | 'Late'>('');
   
   // Attendance tracking
   const [studentAttendance, setStudentAttendance] = useState<Record<string, StudentAttendance>>({});
@@ -408,6 +412,12 @@ export default function Attendance() {
   };
 
   const filteredStudents = students.filter((student) => {
+    const batchMatches =
+      !exportBatchId ||
+      (typeof student.batchId === 'object' && student.batchId !== null && student.batchId._id === exportBatchId);
+
+    if (!batchMatches) return false;
+
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -436,6 +446,44 @@ export default function Attendance() {
       teacher.mobile?.toLowerCase().includes(term)
     );
   });
+
+  const batchOptions = Array.from(
+    new Map(
+      students
+        .filter((student) => typeof student.batchId === 'object' && student.batchId !== null)
+        .map((student) => {
+          const batch = student.batchId as { _id: string; name: string };
+          return [batch._id, batch];
+        })
+    ).values()
+  );
+
+  const handleExportStudentAttendance = async () => {
+    try {
+      setExporting(true);
+      const response = await exportAllStudentAttendanceExcel({
+        batchId: exportBatchId || undefined,
+        date: selectedDate || undefined,
+        status: exportStatus || undefined,
+      });
+
+      const url = window.URL.createObjectURL(response.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = response.filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Student attendance exported successfully');
+    } catch (err) {
+      const apiError = err as ApiError;
+      toast.error(apiError.message || 'Failed to export attendance');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -526,7 +574,7 @@ export default function Attendance() {
       </div>
 
       {/* Search and Date Filter */}
-      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+      <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4 flex-wrap">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -546,6 +594,51 @@ export default function Attendance() {
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        {activeTab === 'students' && (
+          <>
+            <select
+              value={exportBatchId}
+              onChange={(e) => setExportBatchId(e.target.value)}
+              title="Filter table by batch"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[180px]"
+            >
+              <option value="">All Batches (Filter)</option>
+              {batchOptions.map((batch) => (
+                <option key={batch._id} value={batch._id}>
+                  {batch.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={exportStatus}
+              onChange={(e) => setExportStatus(e.target.value as '' | 'Present' | 'Absent' | 'Late')}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[160px]"
+            >
+              <option value="">All Status</option>
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+              <option value="Late">Late</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleExportStudentAttendance}
+              disabled={exporting}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Export Excel
+                </>
+              )}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Content */}

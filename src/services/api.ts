@@ -1,6 +1,6 @@
 // const BASE_URL = 'http://localhost:3000/api';
-const BASE_URL = 'https://api.memarijatiyayuva.live/api';
-// const BASE_URL = 'https://7cvccltb-3000.inc1.devtunnels.ms/api';
+// const BASE_URL = 'https://api.memarijatiyayuva.live/api';
+const BASE_URL = 'https://7cvccltb-3113.inc1.devtunnels.ms/api';
 
 export interface LoginRequest {
   email?: string;
@@ -859,11 +859,18 @@ export interface TeacherInfo {
   email: string;
 }
 
+export interface DaySchedule {
+  day: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface Batch {
   _id: string;
   name: string;
   timeSlot: string;
   weekdays: string[];
+  daySchedules?: DaySchedule[];
   monthlyFee: number;
   isKidsBatch: boolean;
   discountPercentage: number;
@@ -890,8 +897,9 @@ export interface BatchResponse {
 
 export interface CreateBatchRequest {
   name: string;
-  timeSlot: string;
-  weekdays: string[];
+  timeSlot?: string;
+  weekdays?: string[];
+  daySchedules?: DaySchedule[];
   monthlyFee?: number;
   isKidsBatch?: boolean;
   discountPercentage?: number;
@@ -905,6 +913,7 @@ export interface UpdateBatchRequest {
   name?: string;
   timeSlot?: string;
   weekdays?: string[];
+  daySchedules?: DaySchedule[];
   monthlyFee?: number;
   teacherId?: string;
   maxStudents?: number;
@@ -2374,6 +2383,19 @@ export interface StudentAttendanceQueryParams {
   limit?: number;
 }
 
+export interface StudentAttendanceExportQueryParams {
+  batchId?: string;
+  date?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: 'Present' | 'Absent' | 'Late';
+}
+
+export interface AttendanceExportFileResponse {
+  blob: Blob;
+  filename: string;
+}
+
 export interface StaffAttendanceQueryParams {
   staffId?: string;
   date?: string;
@@ -2493,6 +2515,54 @@ export const getStudentAttendance = async (params?: StudentAttendanceQueryParams
     }
 
     return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw {
+        message: error.message,
+        status: 500,
+      } as ApiError;
+    }
+    throw error;
+  }
+};
+
+// Export all student attendance (Excel)
+export const exportAllStudentAttendanceExcel = async (
+  params?: StudentAttendanceExportQueryParams
+): Promise<AttendanceExportFileResponse> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.batchId) queryParams.append('batchId', params.batchId);
+    if (params?.date) queryParams.append('date', params.date);
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+    if (params?.status) queryParams.append('status', params.status);
+
+    const url = `/admin/attendance/student/all/export${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await authenticatedFetch(url, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to export student attendance';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch {
+        // ignore json parse failure for non-json responses
+      }
+      throw {
+        message: errorMessage,
+        status: response.status,
+      } as ApiError;
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+    const filename = filenameMatch?.[1] || `student-attendance-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    return { blob, filename };
   } catch (error) {
     if (error instanceof Error) {
       throw {

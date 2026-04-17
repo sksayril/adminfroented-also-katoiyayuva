@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { updateBatch, UpdateBatchRequest, Batch, ApiError, getTeachers, Teacher } from '../services/api';
+import { updateBatch, UpdateBatchRequest, Batch, ApiError, getTeachers, Teacher, DaySchedule } from '../services/api';
 import { toast } from 'react-toastify';
-import TimeRangePicker from './TimeRangePicker';
-import WeekdayPicker from './WeekdayPicker';
 
 interface UpdateBatchModalProps {
   isOpen: boolean;
@@ -20,8 +18,7 @@ export default function UpdateBatchModal({
 }: UpdateBatchModalProps) {
   const [formData, setFormData] = useState<UpdateBatchRequest>({
     name: '',
-    timeSlot: '',
-    weekdays: [],
+    daySchedules: [{ day: '', startTime: '', endTime: '' }],
     monthlyFee: 0,
     teacherId: '',
     maxStudents: 30,
@@ -34,10 +31,16 @@ export default function UpdateBatchModal({
 
   useEffect(() => {
     if (isOpen && batch) {
+      const existingSchedules = batch.daySchedules && batch.daySchedules.length > 0
+        ? batch.daySchedules
+        : (batch.weekdays || []).map((day) => {
+            const [startTime = '', endTime = ''] = (batch.timeSlot || '').split(' - ');
+            return { day, startTime, endTime };
+          });
+
       setFormData({
         name: batch.name || '',
-        timeSlot: batch.timeSlot || '',
-        weekdays: batch.weekdays || [],
+        daySchedules: existingSchedules.length > 0 ? existingSchedules : [{ day: '', startTime: '', endTime: '' }],
         monthlyFee: batch.monthlyFee || 0,
         teacherId: typeof batch.teacherId === 'object' && batch.teacherId !== null ? batch.teacherId._id : (batch.teacherId || ''),
         maxStudents: batch.maxStudents || 30,
@@ -95,6 +98,16 @@ export default function UpdateBatchModal({
     if (formData.maxStudents !== undefined && formData.maxStudents <= 0) {
       newErrors.maxStudents = 'Max students must be greater than 0';
     }
+    const validDaySchedules = (formData.daySchedules || []).filter(
+      (schedule) => schedule.day.trim() && schedule.startTime.trim() && schedule.endTime.trim()
+    );
+    if (validDaySchedules.length === 0) {
+      newErrors.daySchedules = 'Please add at least one complete day schedule';
+    }
+    const uniqueDays = new Set(validDaySchedules.map((schedule) => schedule.day));
+    if (uniqueDays.size !== validDaySchedules.length) {
+      newErrors.daySchedules = 'Duplicate day entries are not allowed';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -109,7 +122,15 @@ export default function UpdateBatchModal({
 
     try {
       setSubmitting(true);
-      await updateBatch(batch._id, formData);
+      const sanitizedDaySchedules = (formData.daySchedules || []).filter(
+        (schedule) => schedule.day.trim() && schedule.startTime.trim() && schedule.endTime.trim()
+      );
+      await updateBatch(batch._id, {
+        ...formData,
+        daySchedules: sanitizedDaySchedules,
+        timeSlot: undefined,
+        weekdays: undefined,
+      });
       toast.success('Batch updated successfully');
       handleClose();
       onSubmit();
@@ -129,6 +150,41 @@ export default function UpdateBatchModal({
   };
 
   const courseName = typeof batch.courseId === 'object' && batch.courseId ? batch.courseId.name : 'N/A';
+
+  const handleDayScheduleChange = (index: number, field: keyof DaySchedule, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      daySchedules: (prev.daySchedules || []).map((schedule, idx) =>
+        idx === index ? { ...schedule, [field]: value } : schedule
+      ),
+    }));
+
+    if (errors.daySchedules) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.daySchedules;
+        return newErrors;
+      });
+    }
+  };
+
+  const addDaySchedule = () => {
+    setFormData((prev) => ({
+      ...prev,
+      daySchedules: [...(prev.daySchedules || []), { day: '', startTime: '', endTime: '' }],
+    }));
+  };
+
+  const removeDaySchedule = (index: number) => {
+    setFormData((prev) => {
+      const current = prev.daySchedules || [];
+      if (current.length <= 1) return prev;
+      return {
+        ...prev,
+        daySchedules: current.filter((_, idx) => idx !== index),
+      };
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn overflow-y-auto">
@@ -164,29 +220,72 @@ export default function UpdateBatchModal({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Slot
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Day-wise Schedules
               </label>
-              <TimeRangePicker
-                value={formData.timeSlot || ''}
-                onChange={(value) => {
-                  setFormData((prev) => ({ ...prev, timeSlot: value }));
-                }}
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Weekdays
-              </label>
-              <WeekdayPicker
-                value={formData.weekdays || []}
-                onChange={(weekdays) => {
-                  setFormData((prev) => ({ ...prev, weekdays }));
-                }}
-                disabled={submitting}
-              />
+              <div className="space-y-3">
+                {(formData.daySchedules || []).map((schedule, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end p-3 border border-gray-200 rounded-lg bg-slate-50">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Day</label>
+                      <select
+                        value={schedule.day}
+                        onChange={(e) => handleDayScheduleChange(index, 'day', e.target.value)}
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      >
+                        <option value="">Select day</option>
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="text"
+                        value={schedule.startTime}
+                        onChange={(e) => handleDayScheduleChange(index, 'startTime', e.target.value)}
+                        placeholder="8:00 AM"
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="text"
+                        value={schedule.endTime}
+                        onChange={(e) => handleDayScheduleChange(index, 'endTime', e.target.value)}
+                        placeholder="9:30 AM"
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeDaySchedule(index)}
+                      disabled={submitting || (formData.daySchedules || []).length <= 1}
+                      className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addDaySchedule}
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                >
+                  + Add Another Day
+                </button>
+              </div>
+              {errors.daySchedules && <p className="mt-2 text-sm text-red-600">{errors.daySchedules}</p>}
             </div>
 
             <div>

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { createBatch, CreateBatchRequest, ApiError, getTeachers, getCourses, Teacher, Course } from '../services/api';
+import { createBatch, CreateBatchRequest, ApiError, getTeachers, getCourses, Teacher, Course, DaySchedule } from '../services/api';
 import { toast } from 'react-toastify';
-import TimeRangePicker from './TimeRangePicker';
-import WeekdayPicker from './WeekdayPicker';
 
 interface CreateBatchModalProps {
   isOpen: boolean;
@@ -18,8 +16,7 @@ export default function CreateBatchModal({
 }: CreateBatchModalProps) {
   const [formData, setFormData] = useState<CreateBatchRequest>({
     name: '',
-    timeSlot: '',
-    weekdays: [],
+    daySchedules: [{ day: '', startTime: '', endTime: '' }],
     isKidsBatch: false,
     discountPercentage: 0,
     batchType: 'OFFLINE',
@@ -33,6 +30,41 @@ export default function CreateBatchModal({
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const handleDayScheduleChange = (index: number, field: keyof DaySchedule, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      daySchedules: (prev.daySchedules || []).map((schedule, idx) =>
+        idx === index ? { ...schedule, [field]: value } : schedule
+      ),
+    }));
+
+    if (errors.daySchedules) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.daySchedules;
+        return newErrors;
+      });
+    }
+  };
+
+  const addDaySchedule = () => {
+    setFormData((prev) => ({
+      ...prev,
+      daySchedules: [...(prev.daySchedules || []), { day: '', startTime: '', endTime: '' }],
+    }));
+  };
+
+  const removeDaySchedule = (index: number) => {
+    setFormData((prev) => {
+      const current = prev.daySchedules || [];
+      if (current.length <= 1) return prev;
+      return {
+        ...prev,
+        daySchedules: current.filter((_, idx) => idx !== index),
+      };
+    });
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -103,11 +135,15 @@ export default function CreateBatchModal({
     if (!formData.name.trim()) {
       newErrors.name = 'Batch name is required';
     }
-    if (!formData.timeSlot.trim()) {
-      newErrors.timeSlot = 'Time slot is required';
+    const validDaySchedules = (formData.daySchedules || []).filter(
+      (schedule) => schedule.day.trim() && schedule.startTime.trim() && schedule.endTime.trim()
+    );
+    if (validDaySchedules.length === 0) {
+      newErrors.daySchedules = 'Please add at least one complete day schedule';
     }
-    if (!formData.weekdays || formData.weekdays.length === 0) {
-      newErrors.weekdays = 'Please select at least one weekday';
+    const uniqueDays = new Set(validDaySchedules.map((schedule) => schedule.day));
+    if (uniqueDays.size !== validDaySchedules.length) {
+      newErrors.daySchedules = 'Duplicate day entries are not allowed';
     }
     if (!formData.courseId) {
       newErrors.courseId = 'Please select a course';
@@ -115,7 +151,7 @@ export default function CreateBatchModal({
     if (formData.maxStudents <= 0) {
       newErrors.maxStudents = 'Max students must be greater than 0';
     }
-    if (formData.isKidsBatch && formData.discountPercentage < 0) {
+    if (formData.isKidsBatch && (formData.discountPercentage ?? 0) < 0) {
       newErrors.discountPercentage = 'Discount percentage cannot be negative';
     }
 
@@ -132,8 +168,15 @@ export default function CreateBatchModal({
 
     try {
       setSubmitting(true);
+      const sanitizedDaySchedules = (formData.daySchedules || []).filter(
+        (schedule) => schedule.day.trim() && schedule.startTime.trim() && schedule.endTime.trim()
+      );
+
       const submitData: CreateBatchRequest = {
         ...formData,
+        daySchedules: sanitizedDaySchedules,
+        timeSlot: undefined,
+        weekdays: undefined,
         isKidsBatch: formData.isKidsBatch || undefined,
         discountPercentage: formData.isKidsBatch ? formData.discountPercentage : undefined,
         teacherId: formData.teacherId && formData.teacherId.trim() !== '' ? formData.teacherId : undefined,
@@ -155,8 +198,7 @@ export default function CreateBatchModal({
     if (!submitting) {
       setFormData({
         name: '',
-        timeSlot: '',
-        weekdays: [],
+        daySchedules: [{ day: '', startTime: '', endTime: '' }],
         isKidsBatch: false,
         discountPercentage: 0,
         batchType: 'OFFLINE',
@@ -205,45 +247,72 @@ export default function CreateBatchModal({
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Time Slot <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Day-wise Schedules <span className="text-red-500">*</span>
               </label>
-              <TimeRangePicker
-                value={formData.timeSlot || ''}
-                onChange={(value) => {
-                  setFormData((prev) => ({ ...prev, timeSlot: value }));
-                  if (errors.timeSlot) {
-                    setErrors((prev) => {
-                      const newErrors = { ...prev };
-                      delete newErrors.timeSlot;
-                      return newErrors;
-                    });
-                  }
-                }}
-                error={errors.timeSlot}
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Weekdays <span className="text-red-500">*</span>
-              </label>
-              <WeekdayPicker
-                value={formData.weekdays}
-                onChange={(weekdays) => {
-                  setFormData((prev) => ({ ...prev, weekdays }));
-                  if (errors.weekdays) {
-                    setErrors((prev) => {
-                      const newErrors = { ...prev };
-                      delete newErrors.weekdays;
-                      return newErrors;
-                    });
-                  }
-                }}
-                error={errors.weekdays}
-                disabled={submitting}
-              />
+              <div className="space-y-3">
+                {(formData.daySchedules || []).map((schedule, index) => (
+                  <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end p-3 border border-gray-200 rounded-lg bg-slate-50">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Day</label>
+                      <select
+                        value={schedule.day}
+                        onChange={(e) => handleDayScheduleChange(index, 'day', e.target.value)}
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      >
+                        <option value="">Select day</option>
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="text"
+                        value={schedule.startTime}
+                        onChange={(e) => handleDayScheduleChange(index, 'startTime', e.target.value)}
+                        placeholder="8:00 AM"
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="text"
+                        value={schedule.endTime}
+                        onChange={(e) => handleDayScheduleChange(index, 'endTime', e.target.value)}
+                        placeholder="9:30 AM"
+                        disabled={submitting}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeDaySchedule(index)}
+                      disabled={submitting || (formData.daySchedules || []).length <= 1}
+                      className="px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addDaySchedule}
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                >
+                  + Add Another Day
+                </button>
+              </div>
+              {errors.daySchedules && <p className="mt-2 text-sm text-red-600">{errors.daySchedules}</p>}
             </div>
 
             <div>
@@ -360,7 +429,7 @@ export default function CreateBatchModal({
                   type="number"
                   id="discountPercentage"
                   name="discountPercentage"
-                  value={formData.discountPercentage}
+                  value={formData.discountPercentage ?? 0}
                   onChange={handleChange}
                   min="0"
                   max="100"

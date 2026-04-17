@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, Clock, BookOpen, User, Users, DollarSign, Calendar, CheckCircle, XCircle, Tag } from 'lucide-react';
+import { X, Loader2, Clock, BookOpen, User, Users, DollarSign, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { getBatchById, Batch, ApiError } from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -90,37 +90,55 @@ export default function BatchDetailsModal({ isOpen, onClose, batchId }: BatchDet
                 </div>
               </div>
 
-              {/* Time Slot */}
-              <div className="bg-slate-50 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="text-xs text-gray-600 mb-1">Time Slot</p>
-                    <p className="text-sm font-semibold text-gray-800">{batch.timeSlot}</p>
+              {/* Schedule */}
+              {batch.daySchedules && batch.daySchedules.length > 0 ? (
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Calendar className="w-5 h-5 text-indigo-500" />
+                    <p className="text-xs text-gray-600">Day-wise Schedule</p>
+                  </div>
+                  <div className="space-y-2">
+                    {batch.daySchedules.map((schedule, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white border border-indigo-100 rounded-lg px-3 py-2">
+                        <span className="text-sm font-semibold text-indigo-700">{schedule.day}</span>
+                        <span className="text-sm text-gray-700">{schedule.startTime} - {schedule.endTime}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-
-              {/* Weekdays */}
-              {batch.weekdays && batch.weekdays.length > 0 && (
-                <div className="bg-indigo-50 rounded-lg p-4">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-indigo-500" />
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-600 mb-2">Weekdays</p>
-                      <div className="flex flex-wrap gap-2">
-                        {batch.weekdays.map((day, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full"
-                          >
-                            {day}
-                          </span>
-                        ))}
+              ) : (
+                <>
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-5 h-5 text-slate-500" />
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Time Slot</p>
+                        <p className="text-sm font-semibold text-gray-800">{batch.timeSlot}</p>
                       </div>
                     </div>
                   </div>
-                </div>
+
+                  {batch.weekdays && batch.weekdays.length > 0 && (
+                    <div className="bg-indigo-50 rounded-lg p-4">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-indigo-500" />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 mb-2">Weekdays</p>
+                          <div className="flex flex-wrap gap-2">
+                            {batch.weekdays.map((day, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full"
+                              >
+                                {day}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Course Information */}
@@ -219,13 +237,15 @@ export default function BatchDetailsModal({ isOpen, onClose, batchId }: BatchDet
                     <div>
                       <p className="text-xs text-gray-600 mb-1">Last Updated</p>
                       <p className="text-sm font-semibold text-gray-800">
-                        {new Date(batch.updatedAt).toLocaleDateString('en-IN', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {batch.updatedAt
+                          ? new Date(batch.updatedAt).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'N/A'}
                       </p>
                     </div>
                   </div>
