@@ -1,6 +1,6 @@
 // const BASE_URL = 'http://localhost:3000/api';
-// const BASE_URL = 'https://api.memarijatiyayuva.live/api';
-const BASE_URL = 'https://7cvccltb-3113.inc1.devtunnels.ms/api';
+const BASE_URL = 'https://api.memarijatiyayuva.live/api';
+// const BASE_URL = 'https://7cvccltb-3113.inc1.devtunnels.ms/api';
 
 export interface LoginRequest {
   email?: string;
